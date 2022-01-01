@@ -1,0 +1,79 @@
+Q) H0 (m)
+0.7
+Q) DDL Avg. distance between nodes (m)
+0.04375
+
+Q) Scale factor to determine the domain of influence 
+1.55
+Q) Coefficient for Gauss Weight
+1
+Q) Number of components in base function 
+4
+
+Q) Time-Step (s), Starting time (s), Number of time-steps
+0.0075d0, 0, 1
+Q) Printout - End of Freq1, Freq1, Freq2
+5500, 120, 40				
+
+Q) Resume file interval (number of time-step)
+800
+Q) Resume?
+.false.
+Q) Resume file
+'Output/Resume_000000800.txt'
+
+Q) Viscosity On? (0/1), Kinematic viscosity
+0, 1.D-6 
+Q) Wave-maker type (0-No wavemaker, 1-Flap, 2-piston, 15-FNPT)
+15          
+Q) Enable elastic structure? (0/1)            
+0
+
+Q) Number of OpenMP Threads
+8
+
+Q) Maximum number of nodes (LNODE)
+170000
+
+Q) Name of mesh-file
+EmptyTank_L21_dr043_botFul3.txt
+Q) Domain Bottom Left (X, Y, Z) (m, m, m)
+0 0 0
+Q) Domain Top Right (X, Y, Z) (m, m, m)
+21 0.7 0.7
+Q) Cylinder (Centre-X Centre-Y Radius)
+6.50d0 0.70d0 0.04375d0
+
+Q) X Location of Sponge layer start (before right-wall)
+13.00
+Q) Remeshing Freq (=0 to disable)
+1
+
+Q) Wave probe numbers and locations (nProbe | X Y )
+9
+1D0 	0.35D0
+5.93D0 	0.35D0
+6.50D0 	0.35D0
+7.20D0	0.35D0
+5D0 	0.35D0
+6D0 	0.35D0
+7D0 	0.35D0
+8D0 	0.35D0
+9D0 	0.35D0
+
+Q) Pressure probe number and location (nProbe | X Y Z)
+0
+
+
+---- FNPT Coupling for Wavemaking ----
+Q) Data file name
+'../Output PHIT2 23001.dt0075.S18.txt'
+Q) NX NY
+121 	21
+Q) DDL
+0.05d0
+Q) Coupling X0
+18.38d0
+Q) Coupling relaxation zone length
+1d0
+-- END FNPT Coupling for Wavemaking --

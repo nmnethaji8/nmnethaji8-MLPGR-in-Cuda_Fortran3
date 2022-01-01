@@ -1,0 +1,1175 @@
+!!--------------------------PRESSURE_SOLVER2--------------------------!!
+SUBROUTINE PRESSURE_SOLVER2(NODN,PTMP,FB,EPS_G,ERRSOL)
+   USE COMMONMOD
+   USE MLPGSTORAGE
+   USE NEIGHNODES
+   IMPLICIT NONE
+
+      ! external functions
+   INTERFACE
+      SUBROUTINE fortran_solve_csr(n,m,nnz,rowoffset,col,val,rhs,x) BIND(c, name='fortran_solve_csr_')
+         USE, INTRINSIC :: iso_c_binding
+         integer(kind=4), value :: n, m, nnz
+         integer(kind=4):: rowoffset(n+1),col(nnz)
+         real(kind=8) :: val(nnz),rhs(n),x(n)
+      END SUBROUTINE fortran_solve_csr
+   END INTERFACE
+
+   INTEGER(KIND=4),INTENT(IN)::NODN
+   REAL(KIND=8),INTENT(IN)::EPS_G
+
+   INTEGER(KIND=4),INTENT(OUT)::ERRSOL
+   REAL(KIND=8),INTENT(INOUT)::FB(LNODE),PTMP(LNODE)
+
+   INTEGER(KIND=4)::IER,ITER,INNZ,I,IX,IX2,IJ,IK,IL,J,K
+   REAL(KIND=8)::RESNORM,TMPR7
+
+
+
+   FBCSR=-FB(1:NODN)
+
+   WRITE(8,*)'Entering BiCGStab CSR'
+   INNZ=0
+   DO I=1,NODN
+      INNZ=INNZ+IVV(I)
+   ENDDO
+   IX2=0
+   IVVCSR(1)=1
+   DO IX=1,NODN
+      IVVCSR(IX+1)=IVVCSR(IX)+IVV(IX)
+      IK=(IX-1)*IVV(0)
+      TMPR7=SKK(IK+IVV(IX))
+      FBCSR(IX)=FBCSR(IX)/TMPR7
+      DO IJ=1,IVV(IX)
+         IL=LINKTAB(IK+IJ)
+         IX2=IX2+1
+         JVVCSR(IX2)=IL
+         SKKCSR(IX2)=SKK(IK+IJ)/TMPR7
+      ENDDO
+   ENDDO
+   IF((IX2.NE.INNZ).OR.(IVVCSR(NODN+1).NE.(INNZ+1)))THEN
+      WRITE(8,*)' [ERR] CHECK CSR MATRICES'
+      WRITE(8,*)INNZ,IX2,IVVCSR(NODN+1)
+      STOP
+   ENDIF
+
+   JVVCSR(1:INNZ)=JVVCSR(1:INNZ)-1
+   IVVCSR=IVVCSR-1
+
+   ERRSOL = 0 !NO ERROR IN SOLVER
+
+   call fortran_solve_csr(NODN, NODN, INNZ,IVVCSR,JVVCSR(1:INNZ),SKKCSR(1:INNZ),FBCSR,PTCSR)
+   
+   !WRITE(9,*),PTCSR(:)
+
+END SUBROUTINE PRESSURE_SOLVER2
+
+MODULE UB2
+   IMPLICIT NONE
+   INTEGER(KIND=4),MANAGED,ALLOCATABLE::NNN(:),NDD(:,:)
+CONTAINS
+   attributes(device) function rargsort(a,N) result(b)
+   ! Returns the indices that would sort an array.
+   !
+   ! Arguments
+   ! ---------
+   !
+   integer(kind=4), intent(in) :: N                           ! number of numbers/vectors
+   real(kind=8), intent(in):: a(N)   ! array of numbers
+   integer(kind=4),intent(out) :: b(N)         ! indices into the array 'a' that sort it
+   !
+   ! Example
+   ! -------
+   !
+   ! rargsort([4.1_dp, 2.1_dp, 2.05_dp, -1.5_dp, 4.2_dp]) ! Returns [4, 3, 2, 1, 5]
+
+
+   integer(kind=4) :: i,imin                      ! indices: i, i of smallest
+   integer(kind=4) :: temp1                       ! temporary
+   real(kind=8) :: temp2
+   real(kind=8) :: a2(N)
+   a2 = a
+   do i = 1, N
+      b(i) = i
+      !print*,a2(i)
+   end do
+   do i = 1, N-1
+      ! find ith smallest in 'a'
+      imin = minloc(a2(i:n),1)
+      ! swap to position i in 'a' and 'b', if not already there
+      if (imin /= i) then
+         temp2 = a2(i); a2(i) = a2(imin); a2(imin) = temp2
+         temp1 = b(i); b(i) = b(imin); b(imin) = temp1
+      end if
+   end do
+end function rargsort
+
+END MODULE UB2
+
+SUBROUTINE U_BOUNDARY2(IFSI)
+   USE COMMONMOD
+   USE MLPGKINE
+   USE CUDAFOR
+   IMPLICIT NONE
+   INTEGER(KIND=4),INTENT(IN)::IFSI
+
+   INTEGER(KIND=4)::INOD,KK,KK1,IK,IK1
+   REAL(KIND=8)::U_N,U_M,U_S
+
+   IK = 1
+   IK1 = 3
+   DO 10 INOD=NODEID(-2)+1,NODEID(-1)
+      KK=NWALLID(INOD,1)  !COEFFICIENT ABOUT VELOCITY OF WALL PARTICLES
+      KK1=NWALLID(INOD,2)
+      IF (NODEID(INOD).EQ.8.AND.IFSI.EQ.1) GOTO 10
+      IF(KK1.EQ.-10)THEN
+         UX(INOD,IK)=0.D0;UY(INOD,IK)=0.D0;UZ(INOD,IK)=0.D0
+         UX(INOD,IK1)=0.D0;UY(INOD,IK1)=0.D0;UZ(INOD,IK1)=0.D0
+         GOTO 10
+      ENDIF
+
+      IF((KK.EQ.0) .OR. (NODEID(INOD).EQ.2))THEN !0
+         !CALL INTERPOLATION_MPSN(UN(:,1),UN(:,2),UN(:,3),INOD,INOD)
+         UX(INOD,IK)=0 !-TANK_A(INOD,1)*DT
+         UY(INOD,IK)=0 !-TANK_A(INOD,2)*DT
+         UZ(INOD,IK)=0 !-TANK_A(INOD,3)*DT   !NORMAL TO THE WALL
+         UX(INOD,IK1)=0 !-TANK_A(INOD,1)*DT
+         UY(INOD,IK1)=0 !-TANK_A(INOD,2)*DT
+         UZ(INOD,IK1)=0 !-TANK_A(INOD,3)*DT   !NORMAL TO THE WALL
+
+         CYCLE
+      ENDIF
+
+      U_N = 0.D0
+
+      U_M = UX(INOD,IK)*SMX(INOD)+UY(INOD,IK)*SMY(INOD)+UZ(INOD,IK)*SMZ(INOD)
+      U_S = UX(INOD,IK)*SSX(INOD)+UY(INOD,IK)*SSY(INOD)+UZ(INOD,IK)*SSZ(INOD)
+
+      UX(INOD,IK) = U_N*SNX(INOD)+U_M*SMX(INOD)+U_S*SSX(INOD)
+      UY(INOD,IK) = U_N*SNY(INOD)+U_M*SMY(INOD)+U_S*SSY(INOD)
+      UZ(INOD,IK) = U_N*SNZ(INOD)+U_M*SMZ(INOD)+U_S*SSZ(INOD)
+
+      U_M = UX(INOD,IK1)*SMX(INOD)+UY(INOD,IK1)*SMY(INOD)+UZ(INOD,IK1)*SMZ(INOD)
+      U_S = UX(INOD,IK1)*SSX(INOD)+UY(INOD,IK1)*SSY(INOD)+UZ(INOD,IK1)*SSZ(INOD)
+
+      UX(INOD,IK1) = U_N*SNX(INOD)+U_M*SMX(INOD)+U_S*SSX(INOD)
+      UY(INOD,IK1) = U_N*SNY(INOD)+U_M*SMY(INOD)+U_S*SSY(INOD)
+      UZ(INOD,IK1) = U_N*SNZ(INOD)+U_M*SMZ(INOD)+U_S*SSZ(INOD)
+      U_N = 0.D0
+      U_M = PPX(INOD,3)*SMX(INOD)+PPY(INOD,3)*SMY(INOD)+PPZ(INOD,3)*SMZ(INOD)
+      U_S = PPX(INOD,3)*SSX(INOD)+PPY(INOD,3)*SSY(INOD)+PPZ(INOD,3)*SSZ(INOD)
+
+      PPX(INOD,3) = U_N*SNX(INOD)+U_M*SMX(INOD)+U_S*SSX(INOD)
+      PPY(INOD,3) = U_N*SNY(INOD)+U_M*SMY(INOD)+U_S*SSY(INOD)
+      PPZ(INOD,3) = U_N*SNZ(INOD)+U_M*SMZ(INOD)+U_S*SSZ(INOD)
+      IF(NODEID(INOD).EQ.8)THEN
+         UY(INOD,IK) = 0.D0
+         UY(INOD,IK1) = 0.D0
+      ENDIF
+10 ENDDO
+   INOD=cudaDeviceSynchronize()
+END SUBROUTINE U_BOUNDARY2
+
+!!---------------------------END U_BOUNDARY---------------------------!!
+
+!!-----------------------------BOTSLIPBC------------------------------!!
+SUBROUTINE BOTSLIPBC(LNODE, NODN, NODEID, NWALLID, CORX, CORY, CORZ, DDR, SNX, SNY, SNZ, SMX, SMY, SMZ, SSX, SSY, SSZ, UX, UY, UZ)
+   USE NEIGHNODES
+   USE CUDAFOR
+   IMPLICIT NONE
+   !INCLUDE 'COMMON.F'
+
+   !NODN SHOULD BE NODEID(0)
+   INTEGER(KIND=4),INTENT(IN)::LNODE, NODN
+   INTEGER(KIND=4),MANAGED,INTENT(IN)::NODEID(-7:NODN)
+   INTEGER(KIND=4),MANAGED,INTENT(INOUT)::NWALLID(LNODE,4)
+   REAL(KIND=8),MANAGED,INTENT(IN)::SNX(LNODE), SNY(LNODE), SNZ(LNODE)
+   REAL(KIND=8),MANAGED,INTENT(IN)::SMX(LNODE), SMY(LNODE), SMZ(LNODE)
+   REAL(KIND=8),MANAGED,INTENT(IN)::SSX(LNODE), SSY(LNODE), SSZ(LNODE)
+   REAL(KIND=8),MANAGED,INTENT(IN)::DDR(NODN)
+   REAL(KIND=8),MANAGED,INTENT(IN)::CORX(NODN), CORY(NODN), CORZ(NODN)
+   REAL(KIND=8),MANAGED,INTENT(INOUT)::UX(NODN), UY(NODN), UZ(NODN)
+
+   INTEGER(KIND=4)::INOD, NUMNEI, IJ, INEI
+   REAL(KIND=8)::X0, Y0, Z0, U_N, U_M, U_S, U_X, U_Y, U_Z
+
+   DO INOD = NODEID(-3)+1, NODEID(-4)
+
+      IF(NWALLID(INOD,2).EQ.-10) CYCLE
+
+      NUMNEI = NLINK(INOD)%I(0)
+      X0 = CORX(INOD)
+      Y0 = CORY(INOD)
+      Z0 = CORZ(INOD)
+
+      !!$acc loop
+      DO IJ = 1, NUMNEI
+         INEI = NLINK(INOD)%I(IJ)
+         IF(NODEID(INEI).LT.0) CYCLE !CONSIDER ONLY NON-GHOST NEI
+         IF(NODEID(INEI).EQ.2) CYCLE !SKIP BOTTOM NEI NODES
+         IF(NWALLID(INEI,2).EQ.-10) CYCLE
+
+         ! THE NEI THAT WILL NOW COME IS THE CLOSEST TO INOD
+         ! BECAUSE NLINK IS SORTED IS ASCENDING ORDER
+
+         EXIT
+      ENDDO
+
+      U_X = UX(INEI)
+      U_Y = UY(INEI)
+      U_Z = UZ(INEI)
+
+      U_N = 0D0
+      U_M = U_X*SMX(INOD) + U_Y*SMY(INOD) + U_Z*SMZ(INOD)
+      U_S = U_X*SSX(INOD) + U_Y*SSY(INOD) + U_Z*SSZ(INOD)
+
+      UX(INOD) = U_N*SNX(INOD) + U_M*SMX(INOD) + U_S*SSX(INOD)
+      UY(INOD) = U_N*SNY(INOD) + U_M*SMY(INOD) + U_S*SSY(INOD)
+      UZ(INOD) = U_N*SNZ(INOD) + U_M*SMZ(INOD) + U_S*SSZ(INOD)
+   ENDDO
+
+END SUBROUTINE BOTSLIPBC
+
+!!---------------------------END BOTSLIPBC----------------------------!!
+
+!!--------------------------GIVENINITIALV_P---------------------------!!
+SUBROUTINE GIVENINITIALV_P(NODN,PTMP)
+   USE COMMONMOD
+   USE MLPGKINE
+   IMPLICIT NONE
+
+   INTEGER(KIND=4),INTENT(IN)::NODN
+   REAL(KIND=8),INTENT(OUT)::PTMP(NODN)
+
+   INTEGER(KIND=4)::I
+   REAL(KIND=8)::ZZ
+
+   ! [Note]: Ensure NODN = NODEID(0)
+
+   ! THE VELOCITY AT START IS ZERO
+   ! THE DENSITY IS NORMAL WATER DENSITY TAKEN AS 1.
+   ! THESE MAY BE CHANGED LATER
+
+   !$acc parallel loop
+   DO I=1,NODN
+
+      ! DENSITY 1000.0 KG/M3
+      ROU(I)=1000.D0
+
+      ! VELOCITY
+      UX(I,1)=0.D0
+      UY(I,1)=0.D0
+      UZ(I,1)=0.D0
+
+      ! THE STATIC PRESSURE: YY=0 CORRESPONDING TO SEA BED
+      ZZ=COORZ(I,1)
+      PTMP(I)=(H0-ZZ)*ROU(I)*(-GRA)
+   ENDDO
+
+END SUBROUTINE GIVENINITIALV_P
+!!------------------------END GIVENINITIALV_P-------------------------!!
+
+!!------------------------------NODEGRID------------------------------!!
+SUBROUTINE NODEGRID(MESHFILE, FSNOD1, FSNOD2, &
+   DOMX, DOMY, DOMZ, CYLX, CYLY, CYLR)
+   USE COMMONMOD
+   IMPLICIT NONE
+
+   REAL(KIND=8),INTENT(IN)::DOMX(2),DOMY(2),DOMZ(2),CYLX,CYLY,CYLR
+   CHARACTER(LEN=256),INTENT(IN)::MESHFILE
+   INTEGER(KIND=4),INTENT(OUT)::FSNOD1,FSNOD2
+
+   INTEGER(KIND=4)::I,J,NGHST,IEND
+
+   CALL CYLIND5(MESHFILE, FSNOD1, FSNOD2, DOMX, DOMY, DOMZ, &
+      CYLX, CYLY, CYLR)
+
+   WRITE(8,*)'TOTAL WATER PARTICLE NUMBER IS,', NODEID(-2)
+   WRITE(8,*)'TOTAL WATERANDINNER WALL PARTICLE NUMBER',NODEID(-1)
+   WRITE(8,*)'TOTAL  PARTICLE NUMBER IS,', NODEID(0)
+   IF (NODEID(0).GT.LNODE) THEN
+      PRINT*,'ERROR IN ALLOCATION OF NUMBER OF NODES'
+      STOP
+   END IF
+
+   ICELLX=INT((IXMAX)/RCELL)+1
+   ICELLY=INT((IYMAX)/RCELL)+1
+   ICELLZ=INT((IZMAX*2)/RCELL)+1
+
+   WRITE(8,*)'CELL SIZES:',ICELLX,ICELLY,ICELLZ
+
+   NGHST=0
+   !$acc parallel loop
+   DO I=NODEID(-1)+1,NODEID(0)
+      IF(NODEID(I).EQ.-9)NGHST=NGHST+1
+   ENDDO
+
+   OPEN(130,FILE='Output/XY_FLUENT.txt')
+   WRITE(130,'(3I8,1F10.4,3I8)') NODEID(-1)+NGHST
+   WRITE(130,*)'TIME=',0D0
+   IEND=NODEID(-1)
+
+   DO I=1,IEND
+      IF(ABS(COORX(I,1)).LE.70.AND.ABS(COORY(I,2)).LE.70.AND.ABS(COORZ(I,2)).LE.70)THEN
+         WRITE(130,'(7E20.8,1I4)')COORX(I,1),COORY(I,1),COORZ(I,1),0D0,SNX(I),SNY(I),SNZ(I),NODEID(I)
+      ELSE
+         WRITE(130,'(7F16.8,1I4)') -10.,-10.,-10.,0,0,0,0,NODEID(I)
+      ENDIF
+   ENDDO
+
+   DO I=NODEID(-1)+1,NODEID(0)
+      IF(NODEID(I).EQ.-9)THEN
+         WRITE(130,'(7E20.8,1I4)')COORX(I,1),COORY(I,1),COORZ(I,1),0D0,0D0,0D0,0D0,NODEID(I)
+      ENDIF
+   ENDDO
+   WRITE(130,*)'****'
+   CLOSE(130)
+
+END SUBROUTINE NODEGRID
+!!----------------------------END NODEGRID----------------------------!!
+
+!!----------------------------FIND_LAPLAC-----------------------------!!
+SUBROUTINE FIND_LAPLAC(NODN, UN)
+   USE COMMONMOD
+   USE MLPGKINE
+   USE NEIGHNODES
+   IMPLICIT NONE
+
+   INTEGER(KIND=4),INTENT(IN)::NODN
+   REAL(KIND=8),MANAGED,INTENT(OUT)::UN(NODN,1:3)
+
+   INTEGER(KIND=4)::NTOT_WATER, NTOT_ALL, INOD
+   INTEGER(KIND=4)::KI,KK,KK1,NN,I,II,IK,KI1
+   REAL(KIND=8)::U_N,U_M,U_S,T1,T2
+
+   NTOT_WATER=NODEID(-2)
+   NTOT_ALL=NODEID(-1)
+
+   DO I=1,3
+      DO INOD=NTOT_WATER+1,NTOT_ALL
+         UN(INOD,I)=0.D0
+      ENDDO
+   ENDDO
+
+   DO 101 INOD=NTOT_WATER+1,NTOT_ALL
+      KI=NLINK(INOD)%I(0)
+      KK=NWALLID(INOD,1)  !COEFFICIENT ABOUT VELOCITY OF WALL PARTICLES
+      KK1=NWALLID(INOD,2)
+      IF(KK1.EQ.-10)THEN
+
+         UX(INOD,1:2) = 0; UY(INOD,1:2)=0.D0;
+         UZ(INOD,1:2)=0.D0
+         GOTO 101
+      ENDIF
+
+      NN=0
+      DO II=1,KI
+         KI1=NLINK(INOD)%I(II)
+         KK1=NODEID(KI1)
+         IF(KK1.EQ.0.OR.KK1.EQ.4)NN=NN+1
+
+         IF(NN.EQ.1)THEN
+
+            IF(KK.EQ.0)THEN       !VELOCITY IS ZERO
+               UN(INOD,1)=UN(KI1,1); !UX(INOD,1)=0
+               UN(INOD,2)=UN(KI1,2); !UY(INOD,1)=0
+               UN(INOD,3)=UN(KI1,3); !UZ(INOD,1)=0
+            ENDIF
+            IF(KK.EQ.1)THEN !X-Y PLANE
+               UN(INOD,3)=UN(KI1,3)
+            ENDIF
+
+            IF(KK.EQ.2)THEN !Y-Z PLANE
+               UN(INOD,1)=UN(KI1,1)
+            ENDIF
+
+            IF(KK.EQ.3)THEN  !X-Z PLANE
+               UN(INOD,2)=UN(KI1,2)
+            ENDIF
+
+            IF(KK.EQ.4)THEN  !X-Y-Z PLANE
+               UN(INOD,1)=UN(KI1,1)
+               UN(INOD,2)=UN(KI1,2)
+               UN(INOD,3)=UN(KI1,3)
+            ENDIF
+
+            IF(KK.EQ.5)THEN  !Y-Z VELOCITY IS 0,ONLY X VELOCITY
+               UN(INOD,1)=UN(KI1,1)
+               UN(INOD,2)=UN(KI1,2)
+               UN(INOD,3)=UN(KI1,3)
+            ENDIF
+
+            IF(KK.EQ.6)THEN  !ONLY Y VELOCITY
+               UN(INOD,1)=UN(KI1,1)
+               UN(INOD,2)=UN(KI1,2)
+               UN(INOD,3)=UN(KI1,3)
+            ENDIF
+
+            IF(KK.EQ.7)THEN  !ONLY Z VELOCITY
+               UN(INOD,1)=UN(KI1,1)
+               UN(INOD,2)=UN(KI1,2)
+               UN(INOD,3)=UN(KI1,3)
+            ENDIF
+
+            IF(KK.EQ.8)THEN  !ON THE SIDE WALL AND SLOPE
+               UN(INOD,1)=UN(KI1,1)
+               UN(INOD,2)=UN(KI1,2)
+               UN(INOD,3)=UN(KI1,3)
+            ENDIF
+            GOTO 101
+         ENDIF
+      ENDDO
+
+101 CONTINUE
+   DO I=NTOT_WATER+1,NTOT_ALL
+      IF((NODEID(I).EQ.8).AND.(I_WM.EQ.15)) CYCLE
+
+      UX(I,2)=UX(I,1)+UN(I,1) !-TANK_A(I,1)*DT
+      UY(I,2)=UY(I,1)+UN(I,2) !-GRA*DT !-TANK_A(I,2)*DT
+      UZ(I,2)= UZ(I,1)+ UN(I,3)
+      IK = 2
+      U_N = 0.D0
+      U_M = UX(I,IK)*SMX(I)+UY(I,IK)*SMY(I)+UZ(I,IK)*SMZ(I)
+      U_S = UX(I,IK)*SSX(I)+UY(I,IK)*SSY(I)+UZ(I,IK)*SSZ(I)
+
+      UX(I,IK) = U_N*SNX(I)+U_M*SMX(I)+U_S*SSX(I)
+      UY(I,IK) = U_N*SNY(I)+U_M*SMY(I)+U_S*SSY(I)
+      UZ(I,IK) = U_N*SNZ(I)+U_M*SMZ(I)+U_S*SSZ(I)
+
+      COORX(I,2)=COORX(I,1) !+ DT*(UX(I,2)-UX(I,1))  !UM(I)*DT !0.5*(UX(I,2)+UX(I,1))*DT   !X COORDINATE VELOCITY
+      COORY(I,2)=COORY(I,1) !+ DT*(UY(I,2)-UY(I,1)) !VM(I)*DT !0.5*(UY(I,2)+UY(I,1))*DT   !Y CORDINATE VELOCITY
+      COORZ(I,2)= COORZ(I,1)
+   ENDDO
+END SUBROUTINE FIND_LAPLAC
+!!--------------------------END FIND_LAPLAC---------------------------!!
+
+!!------------------------------FIND_ACCN-----------------------------!!
+SUBROUTINE FIND_ACCN(NODN,UM)
+   USE COMMONMOD
+   USE MLPGKINE
+   IMPLICIT NONE
+
+   INTEGER(KIND=4),INTENT(IN)::NODN
+   REAL(KIND=8),INTENT(OUT)::UM(NODN)
+   INTEGER(KIND=4)::INOD,KK,KK1
+
+   UM = 0.D0
+
+   DO 11 INOD=NODEID(-2)+1,NODEID(-1)
+      KK=NWALLID(INOD,1)  !COEFFICIENT ABOUT VELOCITY OF WALL PARTICLES
+      KK1=NWALLID(INOD,2)
+
+      UM(INOD)=UX(INOD,2)*SNX(INOD)+UY(INOD,2)*SNY(INOD)+UZ(INOD,2)*SNZ(INOD)
+      IF (NODEID(INOD).EQ.8) THEN
+         IF(I_WM.EQ.1.OR.I_WM.EQ.2.OR.I_WM.EQ.3.OR.I_WM.EQ.5.OR.I_WM.EQ.6.OR.I_WM.EQ.15)THEN
+
+            UM(INOD)=-TANK_A(INOD,1)*DT*SNX(INOD)+TANK_A(INOD,2)*DT*SNY(INOD)+TANK_A(INOD,3)*DT*SNZ(INOD)
+         END IF
+      END IF
+
+11 CONTINUE
+
+END SUBROUTINE FIND_ACCN
+!!----------------------------END FIND_ACCN---------------------------!!
+
+!!-----------------------------ALLOCATES------------------------------!!
+SUBROUTINE ALLOCATESTORAGE(NODN)
+   USE MLPGSTORAGE
+   IMPLICIT NONE
+   INTEGER(KIND=4),INTENT(IN)::NODN
+   INTEGER(KIND=4)::IERR
+
+   ALLOCATE(IVV(0:NODN),STAT = IERR)
+   IVV(0) = 500
+   ALLOCATE(LINKTAB(NODN*IVV(0)),STAT = IERR)
+   ALLOCATE(SKK(NODN*IVV(0)),STAT = IERR)
+   ALLOCATE(PTCSR(NODN),FBCSR(NODN))
+   ALLOCATE(IVVCSR(NODN+1))
+   ALLOCATE(JVVCSR(IVV(0)*NODN),SKKCSR(IVV(0)*NODN))
+   RETURN
+END SUBROUTINE ALLOCATESTORAGE
+
+SUBROUTINE ALLOCATEWORK(NODN,NTHR)
+   USE MLPGSTORAGE
+   IMPLICIT NONE
+
+   INTEGER(KIND=4),INTENT(IN)::NODN,NTHR
+
+   !ALLOCATE(NWORK(NODN,NTHR),WORK(NODN,NTHR))
+   WRITE(8,'(" [INF] : WORK ALLOCATED")')
+   WRITE(8,'(" [---] : ",2A10)')"NODES","THREADS"
+   WRITE(8,'(" [---] : ",2I10)')NODN,NTHR
+   WRITE(8,*)
+END SUBROUTINE ALLOCATEWORK
+
+SUBROUTINE ALLOCATEKINE(NODN)
+   USE MLPGKINE
+   IMPLICIT NONE
+   INTEGER(KIND=4),INTENT(IN)::NODN
+   INTEGER(KIND=4)::IERR
+
+   ALLOCATE(UX(NODN,1:4),STAT = IERR)
+   ALLOCATE(UY(NODN,1:4),STAT = IERR)
+   ALLOCATE(UZ(NODN,1:4),STAT = IERR)
+   ALLOCATE(PPX(NODN,1:3),STAT = IERR)
+   ALLOCATE(PPY(NODN,1:3),STAT = IERR)
+   ALLOCATE(PPZ(NODN,1:3),STAT = IERR)
+   ALLOCATE(ROU(NODN),STAT = IERR)
+   ALLOCATE(R(NODN),STAT = IERR)
+   ALLOCATE(CC(NODN),STAT = IERR)
+   ALLOCATE(R0(NODN),STAT = IERR)
+
+END SUBROUTINE ALLOCATEKINE
+!!----------------------------ALLOCATEKINE----------------------------!!
+
+!!----------------------------CHECK_NUMNE-----------------------------!!
+SUBROUTINE CHECK_NUMNE
+   USE COMMONMOD
+   USE MLPGKINE
+   USE NEIGHNODES
+   USE CUDAFOR
+   IMPLICIT NONE
+
+   INTEGER(KIND=4)::I,J,II,IMIN,IMINN,IK,IS,MF
+   REAL(KIND=8)::DX,DY,DZ,DR,RIAV,RMIN,T1,T2
+
+   WRITE(8,*)'ENTERING CHECK_NUMNE',NODEID(-2),NLINK(10)%I(0)
+
+   OPEN(NEWUNIT = MF, FILE='Export/CheckNumNe.txt')
+
+   IMIN=999
+   IMINN=0
+   call cpu_time(T1)
+   !!$cuf kernel do <<< *, * >>>
+   DO I=1,NODEID(-1)
+
+      IK=NLINK(I)%I(0)
+
+      RIAV=R(I)+R0(I)
+
+      IS=0
+      DO J=1,IK
+         II=NLINK(I)%I(J)
+         DX=COORX(I,1)-COORX(II,1)
+         DY=COORY(I,1)-COORY(II,1)
+         DZ=COORZ(I,1)-COORZ(II,1)
+         DR=DSQRT(DX**2 + DY**2 + DZ**2)
+
+         IF(DR.LE.RIAV) IS=IS+1
+      ENDDO
+
+      IF((IMIN.GT.IS).AND.(NODEID(I).NE.8))THEN
+         IMIN=IS
+         IMINN=I
+         RMIN=RIAV
+      ENDIF
+
+      WRITE(MF,'(2F15.6,2I10,F15.6)')COORX(I,1),COORZ(I,1),NODEID(I),IS,RIAV
+   ENDDO
+   call cpu_time(T2)
+
+   !WRITE(9,*),T2-T1
+   WRITE(8,'(" [NENUM1] ",2I10,F15.6)')NODEID(IMINN),IMIN,RMIN
+   WRITE(8,'(" [NENUM2] ",3F15.6)')COORX(IMINN,1),COORY(IMINN,1),COORZ(IMINN,1)
+
+   CLOSE(MF)
+
+END SUBROUTINE CHECK_NUMNE
+!!--------------------------END CHECK_NUMNE---------------------------!!
+
+!!---------------------------GENERATEGHOST----------------------------!!
+SUBROUTINE GENERATEGHOST(DDR)
+   USE COMMONMOD
+   USE MLPGKINE
+   USE NEIGHNODES
+   USE CUDAFOR
+   IMPLICIT NONE
+
+   REAL(KIND=8),MANAGED,INTENT(IN)::DDR(NODEID(0))
+
+   INTEGER(KIND=4)::II,IJ
+   REAL(KIND=8)::RIAV
+
+   !!$cuf kernel do <<< *, * >>>
+   DO II=NODEID(-2)+1,NODEID(-7)
+      IJ=NODEID(-1)+II-NODEID(-2)
+      IF(IJ.GT.NODEID(0))THEN
+         WRITE(8,'(" [ERR] CHECK GHOST GENERATE NGHT > NODEID(0)")')
+         WRITE(8,'(" [ERR] ",2I10)')IJ,NODEID(0)
+      ENDIF
+      RIAV=0.7D0*DDR(II)
+      COORX(IJ,:)=COORX(II,1)+SNX(II)*RIAV
+      COORY(IJ,:)=COORY(II,1)+SNY(II)*RIAV
+      COORZ(IJ,:)=COORZ(II,1)+SNZ(II)*RIAV
+      NODEID(IJ)=-6
+      NWALLID(IJ,2) = -10
+   ENDDO
+   II=cudaDeviceSynchronize()
+END SUBROUTINE GENERATEGHOST
+ !!---------------------------GENERATEGHOST----------------------------!!
+
+
+!!------------------------------CYLIND5-------------------------------!!
+SUBROUTINE CYLIND5(MESHFILE, FSNOD1, FSNOD2, DOMX, DOMY, DOMZ, &
+   CYLX, CYLY, CYLR)
+   USE COMMONMOD
+   USE CUDAFOR
+   IMPLICIT NONE
+
+   REAL(KIND=8),MANAGED,INTENT(IN)::DOMX(2),DOMY(2),DOMZ(2)
+   REAL(KIND=8),INTENT(IN)::CYLX,CYLY,CYLR
+   INTEGER(KIND=4),INTENT(OUT)::FSNOD1,FSNOD2
+   CHARACTER(LEN=256),INTENT(IN)::MESHFILE
+
+   INTEGER(KIND=4)::MSFL=101
+   INTEGER(KIND=4)::FSNODSTART,FSNODEND,NGHST
+   INTEGER(KIND=4)::NNI,IK,II,IJ,IJJ,IX,IY,IZ,I,J
+   INTEGER(KIND=4),MANAGED,ALLOCATABLE::NODEDGETY(:,:)
+   REAL(KIND=8)::DRMIN
+   REAL(KIND=8)::TMPR1,TMPR2,TMPR3,TMPR4,TMPR7,RIAV
+   CHARACTER(LEN=256)::TEXT1
+
+   ALLOCATE(NODEDGETY(2,LNODE))
+   WRITE(8,*)'[MSG] ENTERING CYLIND3'
+
+   DRMIN=0.0001D0
+
+   SNX = 0;SNY=0;SNZ = 0; !X_DIRECTIONCOSINES
+   SMX = 0;SMY=0;SMZ = 0; !Y_DIRECTIONCOSINES
+   SSX = 0;SSY=0;SSZ = 0; !Z_DIRECTIONCOSINES
+
+   OPEN(MSFL,FILE=TRIM(MESHFILE))
+
+   READ(MSFL,*)TEXT1
+   READ(MSFL,*)(NODEID(IX),IX=-1,-7,-1)
+   READ(MSFL,*)TEXT1
+   READ(MSFL,*)FSNODSTART,FSNODEND
+   READ(MSFL,*)TEXT1
+   READ(MSFL,*)FSNOD1
+   READ(MSFL,*)FSNOD2
+   READ(MSFL,*)TEXT1
+
+   WRITE(8,*)NODEID(-7:-1)
+
+   !!READING DATA
+   DO NNI=1,NODEID(-1)
+      READ(MSFL,*)COORX(NNI,1),COORY(NNI,1),COORZ(NNI,1),SNX(NNI),SNY(NNI),SNZ(NNI),SMX(NNI),SMY(NNI),SMZ(NNI),SSX(NNI),SSY(NNI),SSZ(NNI),NODEDGETY(1:2,NNI)
+      !WRITE(9,*),COORX(NNI,1),COORY(NNI,1),COORZ(NNI,1),SNX(NNI),SNY(NNI),SNZ(NNI),SMX(NNI),SMY(NNI),SMZ(NNI),SSX(NNI),SSY(NNI),SSZ(NNI),NODEDGETY(NNI,1:2)
+   ENDDO
+
+   !$acc data
+   !$acc kernels
+   !! FLUID + FS
+   DO NNI=1,NODEID(-2)
+      NODEID(NNI)=0
+   ENDDO
+
+   DO NNI=FSNODSTART,FSNODEND
+      NODEID(NNI)=4
+   ENDDO
+
+   !! WAVEMAKER
+   DO NNI=NODEID(-2)+1,NODEID(-3)
+
+      NODEID(NNI)=8
+      NWALLID(NNI,1)=2
+      NWALLID(NNI,2) = 1
+
+      IF(NODEDGETY(1,NNI).EQ.2)THEN !TOP
+         NWALLID(NNI,2)=-11
+      ENDIF
+
+      IF(NODEDGETY(2,NNI).EQ.1)THEN !SIDE
+         NWALLID(NNI,1)=7 !Intersection of surfaces
+         NWALLID(NNI,3)=9    !SPECIAL NODE FOR PRESSURE EQUATION
+      ENDIF
+   ENDDO
+
+   !! BOTTOM
+   DO NNI=NODEID(-3)+1,NODEID(-4)
+
+      NODEID(NNI)=2
+      NWALLID(NNI,2) = 1
+      NWALLID(NNI,1)=1
+
+      IF(NODEDGETY(2,NNI).EQ.1)THEN !SIDE
+         NWALLID(NNI,1)=7 !Intersection of surfaces
+         NWALLID(NNI,3)=9    !SPECIAL NODE FOR PRESSURE EQUATION
+      ENDIF
+
+   ENDDO
+
+   !! OPPOSITE TO WAVEMAKER
+   DO NNI=NODEID(-4)+1,NODEID(-5)
+
+      NODEID(NNI)=3
+      NWALLID(NNI,1)=2
+      NWALLID(NNI,2) = 1
+
+
+      IF(NODEDGETY(1,NNI).EQ.2)THEN !TOP
+         NWALLID(NNI,2)=-11
+      ENDIF
+
+      IF(NODEDGETY(2,NNI).EQ.1)THEN !SIDE
+         NWALLID(NNI,1)=7 !Intersection of surfaces
+         NWALLID(NNI,3)=9 !SPECIAL NODE FOR PRESSURE EQUATION
+      ENDIF
+   ENDDO
+
+   !! SIDEWALL NEAR
+   DO NNI=NODEID(-5)+1,NODEID(-6)
+
+      NODEID(NNI)=1
+      NWALLID(NNI,2) = 1
+      NWALLID(NNI,1)=3
+
+
+      IF(NODEDGETY(1,NNI).EQ.2)THEN !TOP
+         NWALLID(NNI,2)=-11
+      ENDIF
+
+   ENDDO
+
+   !! SIDEWALL FAR
+   DO NNI=NODEID(-6)+1,NODEID(-7)
+      NODEID(NNI)=7
+      NWALLID(NNI,2) = 1
+      NWALLID(NNI,1)=3
+
+      IF(NODEDGETY(1,NNI).EQ.2)THEN !TOP
+         NWALLID(NNI,2)=-11
+      ENDIF
+   ENDDO
+
+   !! CYLINDER
+   DO NNI=NODEID(-7)+1,NODEID(-1)
+
+      NODEID(NNI)=9
+      IF(NODEDGETY(1,NNI).EQ.1)THEN !BOTTOM
+         NWALLID(NNI,3)=9  !PRESSURE BC ID
+      ENDIF
+   ENDDO
+   !$acc end kernels
+
+   !! GHOST NODES
+   NGHST=0
+   NGHST=(NODEID(-1)-NODEID(-2))
+
+   NODEID(0)=NODEID(-1)+NGHST
+   DO II=NODEID(-2)+1,NODEID(-7)
+      IJ=NODEID(-1)+II-NODEID(-2)
+      IF(IJ.GT.NODEID(0))THEN
+         WRITE(8,'(" [ERR] CHECK GHOST GENERATE NGHT > NODEID(0)")')
+         WRITE(8,'(" [ERR] ",2I10)')IJ,NODEID(0)
+      ENDIF
+      RIAV=0.3D0*DDL !! Keeping this lower than GENERATEGHOST(DDR)
+      DO NNI = 1,3
+         COORX(IJ,NNI)=COORX(II,1)+SNX(II)*RIAV
+         COORY(IJ,NNI)=COORY(II,1)+SNY(II)*RIAV
+         COORZ(IJ,NNI)=COORZ(II,1)+SNZ(II)*RIAV
+      ENDDO
+      NODEID(IJ)=-6
+      NWALLID(IJ,2) = -10
+
+   ENDDO
+
+   IJJ=IJ
+   DO IX=NODEID(-7)+1,NODEID(-1)
+      TMPR7=1D0/DRMIN
+      IK=0
+      DO IY=NODEID(-7)+1,NODEID(-1)
+         IF(IX.EQ.IY)CYCLE
+         TMPR1=COORX(IY,1)-COORX(IX,1)
+         TMPR2=COORY(IY,1)-COORY(IX,1)
+         TMPR3=COORZ(IY,1)-COORZ(IX,1)
+         TMPR4=DSQRT(TMPR1**2 + TMPR2**2 + TMPR3**2)
+         IF(TMPR4.LT.TMPR7)THEN
+            TMPR7=TMPR4
+            IK=IY
+         ENDIF
+      ENDDO
+
+      IF(IK.EQ.0)THEN
+         WRITE(8,*)"[ERR] CHECK CYLIND GHOST",IX
+         WRITE(8,*)"[---] ",COORX(IX,1),COORY(IX,1),COORZ(IX,1)
+         STOP
+      ENDIF
+
+      TMPR7=0.80D0*TMPR7
+      NNI=IJJ+IX-NODEID(-7)
+      IF(NNI.GT.NODEID(0))THEN
+         WRITE(8,'(" [ERR] CHECK GHOST GENERATE NGHT > NODEID(0)")')
+         WRITE(8,'(" [ERR] ",2I10)')NNI,NODEID(0)
+      ENDIF
+      COORX(NNI,1)=COORX(IX,1)+SNX(IX)*TMPR7
+      COORY(NNI,1)=COORY(IX,1)+SNY(IX)*TMPR7
+      COORZ(NNI,1)=COORZ(IX,1)
+      NODEID(NNI)=-9
+      NWALLID(NNI,2)=-10
+      WRITE(8,'(" [INF] CYL AND GHOST COOR")')
+      WRITE(8,'(" [---] ",3F15.6)')COORX(IX,1), COORY(IX,1), COORZ(IX,1)
+      WRITE(8,'(" [---] ",3F15.6)')COORX(NNI,1), COORY(NNI,1), COORZ(NNI,1)
+   ENDDO
+
+   WRITE(8,*)
+
+   COORX(:,2)=COORX(:,1)
+   COORY(:,2)=COORY(:,1)
+   COORZ(:,2)=COORZ(:,1)
+
+
+   IZ=INT((DOMZ(2)-DOMZ(1))/DDL,4)
+   IY=INT((DOMY(2)-DOMY(1))/DDL,4)
+   IX=INT((DOMX(2)-DOMX(1))/DDL,4)
+
+   IXMAX=IX+20
+   IYMAX=IY+20
+   IZMAX=IZ+20
+
+   !$acc parallel loop
+   DO I = NODEID(-2)+1,NODEID(0)
+      DO J = I,NODEID(0)
+         IF(I.EQ.J) CYCLE
+         IF((COORX(I,1).eq.COORX(J,1)).and.(COORY(I,1).eq.COORY(J,1)).AND.(COORZ(I,1).eq.COORZ(J,1))) THEN
+            PRINT*,'unique node found',I,J,NODEID(I),NODEID(J)
+            PRINT*,COORX(I,1),COORY(I,1),COORZ(I,1)
+            PRINT*,COORX(J,1),COORY(J,1),COORZ(J,1)
+         ENDIF
+      ENDDO
+   ENDDO
+
+   !$acc end data
+
+   DEALLOCATE(NODEDGETY)
+
+END SUBROUTINE CYLIND5
+!!----------------------------END CYLIND5-----------------------------!!
+
+!!--------------------------------SRI2--------------------------------!!
+SUBROUTINE SRI2(LNODE,NODN,NODEID,NWALLID,COORX,COORY,COORZ, DDR,FSSRCH,H0)
+   USE MLPGKINE
+   USE NEIGHNODES
+   USE CUDAFOR
+   INTEGER(KIND=4),INTENT(IN)::LNODE,NODN
+   INTEGER(KIND=4),MANAGED,INTENT(IN)::NODEID(-7:NODN)
+   INTEGER(KIND=4),MANAGED,INTENT(INOUT)::NWALLID(LNODE,4)
+   REAL(KIND=8),INTENT(IN)::H0
+   REAL(KIND=8),MANAGED,INTENT(IN)::DDR(NODEID(0))
+   REAL(KIND=8),MANAGED,INTENT(IN)::COORX(LNODE),COORY(LNODE)
+   REAL(KIND=8),MANAGED,INTENT(IN)::COORZ(LNODE)
+   LOGICAL,MANAGED,INTENT(INOUT)::FSSRCH(NODEID(0))
+
+   INTEGER(KIND=4)::IDCHANGE,IDPREVIOUS,NUMTOTAL
+   INTEGER(KIND=4)::NUMNE,KK,KKIJ,IJJJ,IDMIN
+   REAL(KIND=8)::RIAV,RIAV2,ZLIM
+   REAL(KIND=8)::XX,YY,ZZ,DR,DRMIN
+
+   IDCHANGE=0
+   ZLIM=0.8D0*H0
+   IJJJ=NODEID(-1)+NODEID(-7)-NODEID(-2)
+
+   DO II=NODEID(-7)+1,NODEID(-1)
+      IG=II-NODEID(-7)+IJJJ
+      KK=NODEID(II)
+      IDPREVIOUS=NWALLID(II,2)
+
+      NWALLID(II,2)=0
+
+      NUMNE=0
+      NUMTOTAL=NLINK(II)%I(0)
+      RIAV=1.5D0*DDR(II)
+      RIAV2=0.2D0*DDR(II)
+      RIAV3=1.2D0*DDR(II)
+
+      DO IJ=1,NUMTOTAL
+         INDJ=NLINK(II)%I(IJ)
+         KKIJ=NODEID(INDJ)
+         XX=(COORX(INDJ)-COORX(II))
+         YY=(COORY(INDJ)-COORY(II))
+         ZZ=(COORZ(INDJ)-COORZ(II))
+         DR=SQRT(XX**2+YY**2+ZZ**2)/(RIAV)
+
+         IF(DR.LE.1D0)THEN
+            IF((KKIJ.EQ.0).OR.(KKIJ.EQ.4))THEN
+               !XX=(COORX(INDJ,2)-COORX(II,2))*SSX(II)
+               !YY=(COORY(INDJ,2)-COORY(II,2))*SSY(II)
+               ZZ=(COORZ(INDJ)-COORZ(II))!*SSZ(II)
+               !DR=SQRT(XX**2+YY**2+ZZ**2)
+               IF((ZZ.GE.-RIAV2).AND.(ZZ.LE.RIAV3)) NUMNE=NUMNE+1
+            ENDIF
+         ENDIF
+      ENDDO
+
+      IF((NUMNE.LT.1).AND.(COORZ(II).GT.ZLIM))THEN
+         NWALLID(II,2)=-10
+         FSSRCH(II)=.FALSE.
+         FSSRCH(IG)=.FALSE.
+         !NWALLID(IG,2)=-10
+         WRITE(1616,'(2F15.6,I10)')COORZ(II)-H0,COORZ(II),NUMNE
+      ELSE
+         NWALLID(II,2)=1
+         FSSRCH(II)=.TRUE.
+         FSSRCH(IG)=.TRUE.
+      ENDIF
+
+      IF(IDPREVIOUS.NE.NWALLID(II,2))THEN
+         IDCHANGE=IDCHANGE+1
+
+         !! VALUES OF U* FOR NODES CHANGED FROM -10 TO 1
+         IF(IDPREVIOUS.EQ.-10)THEN
+            DRMIN=1D10
+            IDMIN=0
+            DO IJ=1,NUMTOTAL
+               INDJ=NLINK(II)%I(IJ)
+               KKIJ=NODEID(INDJ)
+               XX=(COORX(INDJ)-COORX(II))
+               YY=(COORY(INDJ)-COORY(II))
+               ZZ=(COORZ(INDJ)-COORZ(II))
+               DR=SQRT(XX**2+YY**2+ZZ**2)
+
+               IF((DR.LT.DRMIN).AND.((KKIJ.EQ.0).OR.(KKIJ.EQ.4)))THEN
+                  DRMIN=DR
+                  IDMIN=INDJ
+               ENDIF
+            ENDDO
+            UX(II,1:2)=UX(IDMIN,1:2)
+            UY(II,1:2)=UY(IDMIN,1:2)
+            UZ(II,1:2)=UZ(IDMIN,1:2)
+         ENDIF
+      ENDIF
+
+   ENDDO
+
+   WRITE(8,*)'[SRI] IDCHANGE = ',IDCHANGE
+
+END SUBROUTINE SRI2
+!!--------------------------------SRI2--------------------------------!!
+
+!!------------------------JUDGEFREESURFACE_SHA------------------------!!
+SUBROUTINE JUDGEFREESURFACE_SHA(DDR,FSSRCH,SPONGEX)
+   USE COMMONMOD
+   USE MLPGKINE
+   USE NEIGHNODES
+   IMPLICIT NONE
+
+   REAL(KIND=8),INTENT(IN)::DDR(NODEID(0)),SPONGEX
+   LOGICAL,INTENT(IN)::FSSRCH(NODEID(0))
+
+   INTEGER(KIND=4)::NNEI,NNEI2,N0TO4,N4TO0
+   INTEGER(KIND=4)::IE_N,IE_S,IE_W,IE_E,IE_UP,IE_DOWN,IE_RES
+   INTEGER(KIND=4)::I,I2,J,INOD
+   REAL(KIND=8)::RIAV,RMEAN,VLIM
+   REAL(KIND=8)::DDR0P7,DDR1P5
+   REAL(KIND=8)::TMPR1,TMPR2,TMPR3,TMPR4,TMPR5,TMPR6,TMPR7
+
+   N0TO4=0
+   N4TO0=0
+   VLIM=0.23d0 !0.225 !0.24d0 !0.25d0
+   DO I=1,NODEID(-2)
+
+      IF(COORX(I,2).GE.SPONGEX)CYCLE
+
+      NNEI2=NLINK(I)%I(0)
+
+      TMPR1=0D0
+      TMPR2=0D0
+      TMPR3=0D0
+      NNEI=0
+      RMEAN=0D0
+      RIAV=2D0*DDR(I)
+      DO I2=1,NNEI2
+         J=NLINK(I)%I(I2)
+         IF(I.EQ.J) CYCLE
+
+         IF(.NOT.(FSSRCH(J))) CYCLE
+
+         TMPR4=COORX(J,2)-COORX(I,2)
+         TMPR5=COORY(J,2)-COORY(I,2)
+         TMPR6=COORZ(J,2)-COORZ(I,2)
+         TMPR7=DSQRT(TMPR4**2 + TMPR5**2 + TMPR6**2)
+
+         IF(TMPR7.LE.RIAV)THEN
+            NNEI=NNEI+1
+            RMEAN=RMEAN+TMPR7
+            TMPR1=TMPR1+(TMPR4/(TMPR7))
+            TMPR2=TMPR2+(TMPR5/(TMPR7))
+            TMPR3=TMPR3+(TMPR6/(TMPR7))
+         ENDIF
+      ENDDO
+
+      IF(NNEI.EQ.3)THEN
+         WRITE(8,*)'[FSE] FS DETECT NNEI.LT.3 FOR NODE',I,NNEI
+         TMPR7=2*VLIM
+      ELSE
+         TMPR1=(TMPR1)
+         TMPR2=(TMPR2)
+         TMPR3=(TMPR3)
+         TMPR7=DSQRT(TMPR1**2 + TMPR2**2 + TMPR3**2)/(NNEI)
+      ENDIF
+
+      IF(NODEID(I).EQ.0)THEN
+         IF(TMPR7.GT.VLIM) THEN
+            NODEID(I)=-2
+         ENDIF
+      ELSE
+         IF(TMPR7.LT.VLIM) THEN
+            NODEID(I)=0
+            N4TO0=N4TO0+1
+         ENDIF
+      ENDIF
+   ENDDO
+
+   DO I=1,NODEID(-2)
+      IF(NODEID(I).NE.-2)CYCLE
+
+      NNEI2=NLINK(I)%I(0)
+
+      IE_N=0
+      IE_W=0
+      IE_E=0
+      IE_S=0
+      IE_UP=0
+      IE_DOWN=0
+
+      RIAV=2D0*DDR(I)
+      DDR0P7=0.4D0*RIAV
+      DDR1P5=1.0D0*RIAV
+      DO I2=1,NNEI2
+         J=NLINK(I)%I(I2)
+         IF(I.EQ.J) CYCLE
+
+         IF(.NOT.(FSSRCH(J))) CYCLE
+
+         TMPR4=COORX(J,2)-COORX(I,2)
+         TMPR5=COORY(J,2)-COORY(I,2)
+         TMPR6=COORZ(J,2)-COORZ(I,2)
+         TMPR7=DSQRT(TMPR4**2 + TMPR5**2 + TMPR6**2)
+
+         IF(TMPR7.GT.RIAV)CYCLE
+         IF((ABS(TMPR4).LE.DDR0P7).AND.(ABS(TMPR5).LE.DDR0P7).AND.(ABS(TMPR6).LE.DDR1P5))THEN
+            IF(TMPR6.GT.0D0)THEN
+               IE_UP=IE_UP+1
+            ELSE
+               IE_DOWN=IE_DOWN+1
+            ENDIF
+         ENDIF
+         IF((ABS(TMPR4).LE.DDR1P5).AND.(ABS(TMPR5).LE.DDR0P7).AND.(ABS(TMPR6).LE.DDR0P7))THEN
+            IF(TMPR4.GT.0D0)THEN
+               IE_E=IE_E+1
+            ELSE
+               IE_W=IE_W+1
+            ENDIF
+         ENDIF
+         IF((ABS(TMPR4).LE.DDR0P7).AND.(ABS(TMPR5).LE.DDR1P5).AND.(ABS(TMPR6).LE.DDR0P7))THEN
+            IF(TMPR5.GT.0D0)THEN
+               IE_N=IE_N+1
+            ELSE
+               IE_S=IE_S+1
+            ENDIF
+         ENDIF
+      ENDDO
+
+      NODEID(I)=0
+      IE_RES=IE_E*IE_W*IE_N*IE_S*IE_UP*IE_DOWN
+      IF(IE_RES.EQ.0)THEN
+         !N0MIS2=N0MIS2+1
+         NODEID(I)=4
+         N0TO4=N0TO4+1
+      ENDIF
+   ENDDO
+
+   WRITE(8,'(" [FSD] ",F15.6,2I10)')TOTAL_TIME,N0TO4,N4TO0
+
+   DO INOD=NODEID(-1)+1,NODEID(0) !SET THE ZERO
+      NWALLID(INOD,2)=-10
+   ENDDO
+
+END SUBROUTINE JUDGEFREESURFACE_SHA
+!!----------------------END JUDGEFREESURFACE_SHA----------------------!!
+
+!!----------------------------JUDGEBOTTOM-----------------------------!!
+SUBROUTINE JUDGEBOTTOM(LNODE, NODN, NODEID, NWALLID, CORX, CORY, CORZ, DDR, FSSRCH)
+   USE NEIGHNODES
+   USE CUDAFOR
+   IMPLICIT NONE
+   !INCLUDE 'COMMON.F'
+
+   !NODN SHOULD BE NODEID(0)
+   INTEGER(KIND=4),INTENT(IN)::LNODE, NODN
+   INTEGER(KIND=4),MANAGED,INTENT(IN)::NODEID(-7:NODN)
+   INTEGER(KIND=4),MANAGED,INTENT(INOUT)::NWALLID(LNODE,4)
+   REAL(KIND=8),MANAGED,INTENT(IN)::DDR(NODN)
+   REAL(KIND=8),MANAGED,INTENT(IN)::CORX(NODN), CORY(NODN), CORZ(NODN)
+   LOGICAL,MANAGED,INTENT(INOUT)::FSSRCH(NODN)
+
+   INTEGER(KIND=4)::INOD, NUMNEI, IJ, INEI
+   REAL(KIND=8)::TMPR1, DR2, X0, Y0, Z0, RIAV2
+
+   !!$CUF KERNEL do <<< *, * >>>
+   DO INOD = NODEID(-3)+1, NODEID(-4)
+      NUMNEI = NLINK(INOD)%I(0)
+      X0 = CORX(INOD)
+      Y0 = CORY(INOD)
+      Z0 = CORZ(INOD)
+      RIAV2 = DDR(INOD)**2
+
+      DO IJ = 1, NUMNEI
+         INEI = NLINK(INOD)%I(IJ)
+         IF(NODEID(INEI).LT.0) CYCLE !CONSIDER ONLY NON-GHOST NEI
+         IF(NODEID(INEI).EQ.2) CYCLE !SKIP BOTTOM NEI NODES
+         IF(NODEID(INEI).EQ.8) CYCLE !SKIP THE LEFT PLACE TOO
+
+         ! THE NEI THAT WILL NOW COME IS THE CLOSEST TO INOD
+         ! BECAUSE NLINK IS SORTED IS ASCENDING ORDER
+
+         DR2 = (CORX(INEI)-X0)**2 + (CORY(INEI)-Y0)**2  + (CORZ(INEI)-Z0)**2
+
+         IF(DR2.GT.RIAV2)THEN !DRY
+            NWALLID(INOD,2) = -10
+            FSSRCH(INOD) = .FALSE.
+            WRITE(1617, '(I10,3F15.6)')INOD, X0, Y0, Z0
+         ELSE !WET
+            NWALLID(INOD,2) = 1
+            FSSRCH(INOD) = .TRUE.
+         ENDIF
+
+         EXIT
+      ENDDO
+   ENDDO
+
+
+   WRITE(1617,'("---interface---")')
+
+   !!$CUF KERNEL do <<< *, * >>>
+   DO INOD = NODEID(-3)+1, NODEID(-4)
+
+      IF(NWALLID(INOD,2).EQ.-10) CYCLE !ONLY WET TYPE2 NODES
+
+      NUMNEI = NLINK(INOD)%I(0)
+      X0 = CORX(INOD)
+      Y0 = CORY(INOD)
+      Z0 = CORZ(INOD)
+      RIAV2 = DDR(INOD)**2
+      NWALLID(INOD,3) = 0 !BY DEFAULT NO MLS INTERPOLATION
+
+      DO IJ = 1, NUMNEI
+         INEI = NLINK(INOD)%I(IJ)
+         IF(NODEID(INEI).NE.2) CYCLE
+
+         ! ONLY TYPE2 NEIGHS
+
+         DR2 = (CORX(INEI)-X0)**2 + (CORY(INEI)-Y0)**2  + (CORZ(INEI)-Z0)**2
+
+         IF(DR2.GT.RIAV2) CYCLE
+
+         IF(NWALLID(INEI,2).EQ.-10)THEN
+            NWALLID(INOD,3) = 9 !MLS INTERPOLATION
+            WRITE(1617, '(I10,3F15.6)')INOD, X0, Y0, Z0
+            EXIT
+         ENDIF
+      ENDDO
+   ENDDO
+END SUBROUTINE JUDGEBOTTOM
+
+!!---------------------------END JUDGEBOTTOM--------------------------!!
