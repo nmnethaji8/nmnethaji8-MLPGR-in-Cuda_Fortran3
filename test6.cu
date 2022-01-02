@@ -67,7 +67,17 @@ extern "C"
 
         cusp::krylov::gmres(A, X, B, 50, monitor, M);
 
-
+        // report solver results
+        if (monitor.converged())
+        {
+            std::cout << "Solver converged to " << monitor.relative_tolerance() << " relative tolerance";
+            std::cout << " after " << monitor.iteration_count() << " iterations" << std::endl;
+         }
+         else
+         {
+            std::cout << "Solver reached iteration limit " << monitor.iteration_limit() << " before converging";
+            std::cout << " to " << monitor.relative_tolerance() << " relative tolerance " << std::endl;
+         }
         for(int i=0;i<n;i++)
         {
             x[i] = X[i];
