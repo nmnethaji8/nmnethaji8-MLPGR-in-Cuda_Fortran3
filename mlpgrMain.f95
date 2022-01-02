@@ -633,12 +633,23 @@ PROGRAM THREED_BREAKINGWAVE
       ERRSOL = 0
       NPOI1=NODEID(-1)
 
-      call cpu_time(T1)
       CALL PRESSURE_SOLVER2(NPOI1,PTMP,FB,EPS_G,ERRSOL)
-      call cpu_time(T2)
+      CALL SYSTEM_CLOCK(CPUT%TI(6))
+      WRITE(8,'(" [TIM] TIME OF PRESSURE_SOLVER IS ",F15.6)'), &
+         1D0*(CPUT%TI(6)-CPUT%TI(5))/CPUT%SYSRATE
+      WRITE(8,*)
+  
+      !CHANGE IT INTO REAL PRESSURE P=P-(Z-D)
+      DO I=1,NODEID(0) 
+         PTMP(I)=PTMP(I)-((COORZ(I,2)-h0)*rou(i)*(-GRA))
+      ENDDO
 
-      PRINT*,"PRESSURE_SOLVER2 ",T2-T1
+      IF(ERRSOL.EQ.1) GOTO 201
+      !x---------------------------------------------------x!
 
+      !!---------------------------------------------------!!
+
+      201 CONTINUE
    ENDDO
 
 END PROGRAM THREED_BREAKINGWAVE
