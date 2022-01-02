@@ -1,4 +1,5 @@
 #include <iostream>     // std::cout
+#include<fstream>
 
 #include <cusp/csr_matrix.h>
 #include <cusp/precond/diagonal.h>
@@ -22,14 +23,14 @@ extern "C"
         // create an empty sparse matrix structure (CSR format)
         cusp::csr_matrix<int, ValueType, MemorySpace> A(n,m,nnz);
 
-        cout << "Row offset\n";
+        //cout << "Row offset\n";
         for(int i=0;i<=n;i++)
         {
             A.row_offsets[i] = rowoffset[i];
             //cout << rowoffset[i] << " ";
         }
 
-        cout << "cloumn and val\n";
+        //cout << "cloumn and val\n";
         for(int i=0;i<nnz;i++)
         {
             A.column_indices[i] = col[i]; A.values[i] = val[i];
@@ -68,16 +69,19 @@ extern "C"
         cusp::krylov::gmres(A, X, B, 50, monitor, M);
 
         // report solver results
+        ofstream mlpgTerOut;
+        mlpgTerOut.open("mlpgTerOut.txt",ofstream::app);
         if (monitor.converged())
         {
-            std::cout << "Solver converged to " << monitor.relative_tolerance() << " relative tolerance";
-            std::cout << " after " << monitor.iteration_count() << " iterations" << std::endl;
+            mlpgTerOut << " [PARACSR]\t1\t" << monitor.iteration_count() << "\t" << endl;
          }
          else
          {
-            std::cout << "Solver reached iteration limit " << monitor.iteration_limit() << " before converging";
-            std::cout << " to " << monitor.relative_tolerance() << " relative tolerance " << std::endl;
+            mlpgTerOut << "Solver reached iteration limit " << monitor.iteration_limit() << " before converging";
+            mlpgTerOut << " to " << monitor.relative_tolerance() << " relative tolerance " << endl;
          }
+
+         mlpgTerOut.close();
         for(int i=0;i<n;i++)
         {
             x[i] = X[i];
