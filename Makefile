@@ -41,6 +41,6 @@ modCommon.o:modCommon.f95
 	$(FC) $(v) -Minfo=acc -c modCommon.f95
 
 clean:
-	rm -rf *.o *.mod *~ mlpgrCuda
+	rm -rf *.o *.mod *~ mlpgrCuda Export Output
+	mkdir -p Export Output
 
-#/opt/nvidia/hpc_sdk/Linux_x86_64/21.7/compilers/bin/nvcc -rdc=true -I /home/vsriram/projects/petsc/include/ -I /home/vsriram/projects/petsc/petsc/arch-linux-c-debug/include/ -L /home/vsriram/projects/petsc/arch-linux-c-debug/lib/ test2.cu -lcublas -lcudart -lcusolver -lcusparse -lcudadevrt -lpetsc -lmpi

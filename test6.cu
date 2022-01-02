@@ -54,7 +54,7 @@ extern "C"
         //  iteration_limit    = 20000
         //  relative_tolerance = 1e-15
         //  absolute_tolerance = 1e-10
-        cusp::monitor<ValueType> monitor(B, 20000, 1e-15, 1e-10, true);
+        cusp::monitor<ValueType> monitor(B, 20000, 1e-15, 1e-10, false);
 
         // setup preconditioner
         /*cusp::precond::diagonal<ValueType, MemorySpace> M(A);
