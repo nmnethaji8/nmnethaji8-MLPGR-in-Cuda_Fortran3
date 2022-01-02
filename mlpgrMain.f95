@@ -649,6 +649,12 @@ PROGRAM THREED_BREAKINGWAVE
 
       !!---------------------------------------------------!!
 
+      P = 0.d0
+
+      NPOI1=NODEID(0)
+      CALL GHOSTPART(LNODE,NPOI1,NODEID(-7:NPOI1),NWALLID, &
+        COORX(:,2),COORY(:,2),COORZ(:,2),NLMAXN,MBAS,KW,R1,DDR,PTMP, &
+        MIRRNP,MIRRXY)
       201 CONTINUE
    ENDDO
 
