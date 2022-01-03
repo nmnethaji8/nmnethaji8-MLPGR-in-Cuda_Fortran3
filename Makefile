@@ -5,6 +5,7 @@ nv = /opt/nvidia/hpc_sdk/Linux_x86_64/21.7/compilers/bin/nvcc
 v = -Mcuda -acc #ptxinfo
 
 mlpgrCuda:mlpgrMain.o remesh_v1.o resume.o mlpgMainSubs.o interpFunc_v1.5.o interpNew_v1.5.o modules_v3.1.o fnptCoupling.o nodelinkNew_v2.3.o modCommon.o
+	mkdir -p Export Output
 	$(FC) $(v) -Minfo=acc -c++libs -o mlpgrCuda mlpgrMain.o remesh_v1.o resume.o mlpgMainSubs.o test6.o interpFunc_v1.5.o interpNew_v1.5.o modules_v3.1.o fnptCoupling.o nodelinkNew_v2.3.o modCommon.o -Mcudalib=cublas,cusolver,cusparse
 
 mlpgrMain.o:mlpgrMain.f95  resume.o mlpgMainSubs.o interpFunc_v1.5.o modules_v3.1.o fnptCoupling.o nodelinkNew_v2.3.o modCommon.o 
@@ -41,6 +42,10 @@ modCommon.o:modCommon.f95
 	$(FC) $(v) -Minfo=acc -c modCommon.f95
 
 clean:
-	rm -rf *.o *.mod *~ mlpgrCuda Export Output
+	rm -rf Export Output
 	mkdir -p Export Output
 
+cleanAll:
+	rm -rf mlpgrCuda Export Output *.o *.mod
+
+run:clean default
