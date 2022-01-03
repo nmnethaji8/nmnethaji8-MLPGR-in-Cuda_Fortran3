@@ -1087,7 +1087,58 @@ IMPLICIT NONE
          NWALLID,COORX,COORY,COORZ,INOD,XQ,YQ,ZQ,ILINK,&
          NN,ND,W,IDWEI,2,I,I2,KW2,RIAV,CCIAV,RCI,ETMP,DEW,DR,DR2,WWI)
 
+      IF (NN.LE.0) THEN
+         !WRITE(8,*)'WARNING: NO NODE NEAR THE POINT'
+         !WRITE(8,*)'SHAPE FUNCTION ASSIGNED 1'
+         NN=1
+         ND(0)=1
+         W(1)=1.0D0
+         ND(1)=INOD
+         PHI(1)=1.0D0
+         GOTO 30
+      ENDIF
+
+      IF(NN.LE.3)THEN
+         CALL SHEPARDSF_SHA(PHI,NN,W,NLMAX,I,WWI)
+         GOTO 30
+      ENDIF
+
+      CALL SHAPPARA_R_SHA(LNODE,MBA,NLMAX,A,B,NN,ND,W,&
+         COORX,COORY,COORZ,I,NI,J,K,PB2,PP2,WWI)
+
+      CALL BASEFUN_SHA(MBA,PT,XQ,YQ,ZQ)
+
+      IF(MBA.EQ.4)THEN
+         CALL FINDINV4X4(A,AINV,WWI)
+         IF(ABS(WWI).LT.1E-15)THEN
+            WRITE(8,'("     [ERR] SINGULAR MATRIX A, ADET ",F15.6)')WWI
+            WRITE(8,'("     [---] LOC ",3F15.6)')XQ,YQ,ZQ
+            CALL SHEPARDSF_SHA(PHI,NN,W,NLMAX,I,WWI)
+            GOTO 30
+         ENDIF
+      ELSE
+         WRITE(8,'(" [ERR] FINDINV NOT CODED FOR MBA =",I10)')MBA
+         STOP
+      ENDIF
+
+      CALL SHAPEFUN_PHI_SHA(MBA,NLMAX,NN,AINV,B,PT,AA,PHI,I,J,K)
+
+30  PINT=0D0
+      DO I2=1,NN
+         PINT=PINT+PHI(I2)*P(ND(I2))      
+      ENDDO
+      PINT=MAX(0D0,PINT)
+        
+      IF(NODEID(IGH2).NE.-9)THEN
+         WRITE(8,'(" [ERR] GHOST PARTICLE NOT -9")'),NODEID(IGH2)
+         STOP
+      ENDIF
+      P(IGH2)=PINT
+      NWALLID(IGH2,2)=NWALLID(INOD,2)
+
    ENDDO
+
+   WRITE(8,'(" [MSG] EXITING GHOSTPART")')
 
 END SUBROUTINE GHOSTPART
 !!------------------------- END GHOSTPART -------------------------!!
