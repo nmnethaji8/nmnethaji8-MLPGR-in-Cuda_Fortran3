@@ -1303,7 +1303,7 @@ IMPLICIT NONE
    NODTAL=NODEID(-1)  !ONLY THE WATER PARTICLE UPDATE
    IK=1
 
-   !$acc kernels loop gang
+   !$acc kernels loop
    DO INOD=1,NODTAL
 
       PPXI=0.0
@@ -1336,7 +1336,7 @@ IMPLICIT NONE
       FFF = FB(INOD)
   
       IWALL=0
-      !$acc loop vector
+      !!$acc loop vector
       DO IN=1,NLINI
 
          I=NLINK(INOD)%I(IN)
@@ -1349,7 +1349,7 @@ IMPLICIT NONE
       DIY=0D0
       DIZ=0D0
 
-      !$acc loop vector
+      !!$acc loop vector
       DO IN=1,NLINI
 
          I=NLINK(INOD)%I(IN)
@@ -1393,7 +1393,7 @@ IMPLICIT NONE
          END IF 
       ENDDO
 
-      !$acc loop vector
+      !!$acc loop vector
       DO IN=1,NLINI  !IN NOT EQUAL TO NOD 
 
          I=NLINK(INOD)%I(IN)
@@ -1507,7 +1507,7 @@ IMPLICIT NONE
       DIY=0.D0
       DIZ=0.D0
 
-      !$acc loop vector
+      !!$acc loop vector
       DO  IN=1,NLINI  !IN NOT EQUAL TO NOD 
          I=NLINK(INOD)%I(IN)
          NODIDII=NODEID(INOD)
