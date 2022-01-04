@@ -1349,6 +1349,102 @@ IMPLICIT NONE
       DIY=0D0
       DIZ=0D0
 
+      !$acc loop
+      DO IN=1,NLINI
+
+         I=NLINK(INOD)%I(IN)
+         NODIDII=NODEID(INOD)
+         NODIDIJ=NODEID(I)
+   
+         XDI=XQ-COORX(I)
+         YDI=YQ-COORY(I)
+         ZDI=ZQ-COORZ(I)
+         DI=DSQRT(XDI**2+YDI**2+ZDI**2)
+   
+         RIAV= R(INOD)+R0(INOD)
+      
+         IF(IWALL.NE.0.AND.Ik.EQ.1)THEN
+      
+            RIAV= R(INOD)+1.5d0*R0(INOD)
+
+         ENDIF
+         RATIO=DI/RIAV
+         IF (DI.GE.1.D-10) THEN
+            WWI=1-6*(RATIO)**2+8*(RATIO)**3-3*(RATIO)**4 
+           
+            IF(NWALLID(I,2).EQ.-10) THEN 
+               WWI=-1.D0  !WALL SPECIAL PARTICLE
+               RATIO = -1.D0
+            END IF
+   
+            IF(NODIDIJ.GE.0.AND.NODIDIJ.LT.10)THEN     
+               IF (WWI.GT.1.0E-15) THEN
+   
+               RNIX=RNIX+(XDI**2)*WWI/DI/DI   
+               RNIY=RNIY+(YDI**2)*WWI/DI/DI     
+               RNIZ=RNIZ+(ZDI**2)*WWI/DI/DI 
+   
+               RNXY=RNXY+XDI*YDI*WWI/DI/DI
+               RNXZ=RNXZ+XDI*ZDI*WWI/DI/DI
+               RNYZ=RNYZ+YDI*ZDI*WWI/DI/DI
+               NN=NN+1
+               ENDIF   
+            ENDIF 
+         END IF 
+      ENDDO
+
+      DO  IN=1,NLINI  !IN NOT EQUAL TO NOD 
+
+         I=NLINK(INOD)%I(IN)
+         NODIDII=NODEID(INOD)
+         NODIDIJ=NODEID(I)
+   
+         XDI=XQ-COORX(I)
+         YDI=YQ-COORY(I)
+         ZDI=ZQ-COORZ(I)
+         DI=DSQRT(XDI**2+YDI**2+ZDI**2)
+   
+         RIAV= R(INOD)+R0(INOD)
+   
+         IF(IWALL.NE.0.AND.Ik.EQ.1)THEN
+   
+            RIAV= R(INOD)+1.5d0*R0(INOD)
+   
+         ENDIF
+   
+         RATIO=DI/RIAV
+         IF (DI.GE.1.D-10) THEN
+            WWI=1-6*(RATIO)**2+8*(RATIO)**3-3*(RATIO)**4 
+           
+            IF(NWALLID(I,2).EQ.-10) THEN 
+               WWI=-1.D0  !WALL SPECIAL PARTICLE
+               RATIO = -1.D0
+            END IF
+           
+            IF(NODIDIJ.GE.0.AND.NODIDIJ.LT.10)THEN
+               IF(WWI.GT.1.0E-15)THEN
+                  
+                  BJX=-WWI*XDI/DI/DI
+                  BJY=-WWI*YDI/DI/DI 
+                  BJZ=-WWI*ZDI/DI/DI
+   
+                  DIX=DIX+BJX/RNIX*(FB(I)-fb(INOD))   !P/X  
+                  DIY=DIY+BJY/RNIY*(FB(I)-fb(INOD))   !P/Y
+                  DIZ=DIZ+BJZ/RNIZ*(FB(I)-fb(INOD))   !P/Z
+                  
+                  IF (FB(I).LT.FFF) FFF = FB(I)
+   
+               ENDIF   
+            ENDIF 
+         ENDIF
+      ENDDO
+!**************************************************************************************
+      
+      IF(NN.EQ.100) then
+         PRINT*,'increase the domain size in gradient'
+         STOP
+      ENDIF
+
    ENDDO
    !$acc end kernels
 
