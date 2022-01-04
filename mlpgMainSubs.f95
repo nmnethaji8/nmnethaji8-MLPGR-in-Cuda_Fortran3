@@ -81,6 +81,75 @@ SUBROUTINE U_UPDATE_POW2(LNODE,NODN,NODEID,NWALLID,GRA,DT,COORX,COORY,COORZ,SPON
    REAL(KIND=8),INTENT(IN)::SPONGEX,DOMX(2),DOMY(2),DOMZ(2)      
    REAL(KIND=8),INTENT(IN)::GRA,DT
    REAL(KIND=8),INTENT(IN)::COORX(LNODE),COORY(LNODE),COORZ(LNODE)
+   REAL(KIND=8)::BMAX,XI,S1,COEF2,A_MAX
+
+   NODTAL=NODEID(-1)  !ONLY THE WATER PARTICLE UPDATE
+   A_MAX=50.D0*ROU(1)*(-GRA) !AS THE maximum acceleration
+
+   BMAX=10D0   !! DISSIPATION COEFF FOR SPONGE LAYER      
+   WRITE(8,*)'[INF] Var SPONGEX =',SPONGEX
+   WRITE(8,*)'[INF] D_ZONE Width =',DOMX(2)-SPONGEX
+
+   !$acc kernels loop
+   DO INOD=1,NODTAL
+    
+      ! THE VELOCITY IS UPDATE  
+      IF(ABS(PPX(INOD,1)).LT.A_MAX)THEN
+         UX(INOD,4)=-DT/ROU(INOD)*PPX(INOD,1)
+      ELSE
+         UX(INOD,4)=0.D0
+      ENDIF
+      IF(ABS(PPY(INOD,1)).LT.A_MAX)THEN
+         UY(INOD,4)=-DT/ROU(INOD)*PPY(INOD,1)     
+      ELSE
+         UY(INOD,4)=0.D0
+      ENDIF
+      IF(ABS(PPZ(INOD,1)).LT.A_MAX)THEN
+         ! UZ(INOD,4)=-DT/ROU(INOD)*(PPZ(INOD,1)+1)
+         ! UZ(INOD,4)=-DT/ROU(INOD)*PPZ(INOD,1)
+         UZ(INOD,4)=-DT/ROU(INOD)*PPZ(INOD,1)+GRA*DT
+      ELSE
+         UZ(INOD,4)=DT*GRA    !gravity term
+      ENDIF
+
+      UX(INOD,3)=UX(INOD,2)+UX(INOD,4)
+      UY(INOD,3)=UY(INOD,2)+UY(INOD,4)
+      UZ(INOD,3)=UZ(INOD,2)+UZ(INOD,4)
+
+      UX(INOD,4)=UX(INOD,1)  !SAVE THE N TIME STEP,FOR COORDINATE UPDATE
+      UY(INOD,4)=UY(INOD,1)
+      UZ(INOD,4)=UZ(INOD,1)
+
+      UX(INOD,1)=UX(INOD,3)  !SAVE N+1 TIME STEP;
+      UY(INOD,1)=UY(INOD,3)
+      UZ(INOD,1)=UZ(INOD,3)
+
+
+      ! ADD THE DAMPING ZONE
+      XI=COORX(INOD)
+      IF(XI.GE.SPONGEX)THEN          
+         S1 = (XI-SPONGEX)/(DOMX(2)-SPONGEX) 
+         ! COEF2=0.5*1.*(1-cos(PI*(XI-D_ZONE)/3.))
+         ! COEF2 = 0.5D0*0.4*(1+sin(PI*((Xi-d_zone)/3.0)-0.5))  
+         ! COEF2 =  s1**6 !-2* (1-S1)**3+3*(1-S1)**2  !1-sin(1.5708d0*S1) !tanh(3.14d0*S1) !  !!  ! ! !
+         ! COEF2=1D0 - 3D0*S1**2 + 2D0*S1**3          
+         ! COEF2=(1d0-S1**6)
+         COEF2=1D0+DT*BMAX*S1**3
+         !WRITE(21,'(3F15.6)')XI,S1,COEF2
+
+         UX(INOD,1)=UX(INOD,1)/COEF2          
+         UY(INOD,1)=UY(INOD,1)/COEF2
+         UZ(INOD,1)=UZ(INOD,1)/COEF2
+      ENDIF
+      IF(NWALLID(INOD,2).EQ.-10)THEN
+         UX(INOD,1:3)=0.D0
+         Uz(INOD,1:3)=0.D0
+         Uy(INOD,1:3)=0.D0
+      ENDIF
+
+   ENDDO
+
+   RETURN
 
 END SUBROUTINE U_UPDATE_POW2
 
