@@ -347,6 +347,94 @@ SUBROUTINE WEIGHTF_GRAD_2P(XQ,YQ,NN,ND,BJX,BJY,NDL,NOD,RNIX,RNIY,RNXY,NLM,IDW,ID
    REAL(KIND=8),INTENT(OUT)::BJX(NLM),BJY(NLM)
    REAL(KIND=8),INTENT(OUT)::RNIX,RNIY,RNXY
 
+   INTEGER(KIND=4)::I,NLINI,IWALL,IN,NODIDII,NODIDIJ
+   REAL(KIND=8)::XX(5),YY(5),RIAV,XDI,YDI,DI,RATIO,WWI
+
+   !initial value
+   ND(0)=0
+   NDL(0)=0
+   DO I=1,NLM
+     ND(I)=0
+     NDL(I)=0
+     BJX(I)=0.D0
+     BJY(I)=0.D0
+   ENDDO
+
+   RNIX=0.D0   !SUM OF WEIGHT FUNCTION*(XJ-XI)**2
+   RNIY=0.D0   !SUM OF WEIGHT FUNCTION*(YJ-YI)**2
+   RNXY=0.D0   !SUM OF WEIGHT FUNCTION*(YJ-YI)*(XJ-XI)
+
+   NN=0
+   NLINI=NLINK(NOD)%I(0)
+   IF(NLINI.LE.2)THEN
+      RETURN
+   ENDIF
+   ND(0:NLINI)=0
+   
+   IWALL = 0
+   DO IN = 1,NLINI
+      I=NLINK(NOD)%I(IN)
+      IF(NODEID(I).NE.0.AND.NODEID(I).NE.4)IWALL=1
+   END DO
+
+   IF(IDW.EQ.4)THEN  !FOR OTHER WEIGTH FUNCTION
+      DO 50 IN=1,NLINI  !IN NOT EQUAL TO NOD 
+         I=NLINK(NOD)%I(IN)
+         NODIDII=NODEID(NOD)
+         NODIDIJ=NODEID(I)
+         IF(NODIDII.EQ.NODIDIJ.OR.NWALLID(I,1).EQ.7)THEN
+         
+            RIAV = R(NOD)
+            IF(NODEID(NOD).EQ.8.OR.NODEID(NOD).EQ.3)THEN
+              XDI=XQ-COORY(I,2)
+              YDI=YQ-COORZ(I,2)
+            ELSEIF(NODEID(NOD).EQ.7.OR.NODEID(NOD).EQ.1)THEN
+              XDI=XQ-COORX(I,2)
+              YDI=YQ-COORZ(I,2)
+            ENDIF
+             
+            DI=DSQRT(XDI**2+YDI**2)
+         
+            RATIO=DI/RIAV
+            IF(DI.LE.1.D-10)GOTO 50 !EXLUDING THE POINT ITSELF
+
+            WWI=1-6*(RATIO)**2+8*(RATIO)**3-3*(RATIO)**4 
+            IF(NWALLID(I,2).EQ.-10) THEN
+              WWI=-1.D0  !WALL SPECIAL PARTICLE
+              RATIO = -1.D0
+            ENDIF
+
+            IF (IVIRT.EQ.1) NODIDIJ = ABS(NODEID(I))
+            IF(NODIDIJ.GE.0.AND.NODIDIJ.LT.10)THEN
+               IF (WWI.GT.1.E-15) THEN
+            
+                  NN=NN+1
+                  BJX(NN)=-WWI*XDI/DI/DI
+                  BJY(NN)=-WWI*YDI/DI/DI
+                  RNIX=RNIX+(XDI**2)*WWI/DI/DI   
+                  RNIY=RNIY+(YDI**2)*WWI/DI/DI     
+                  RNXY=RNXY+ XDI*YDI*WWI/DI/DI
+
+                  ND(NN)=I
+               ENDIF   
+            ENDIF
+         ENDIF
+   50 CONTINUE
+      ND(0)=NN
+      IF(NN.EQ.NLINI)THEN
+         ! WRITE(8,*)'THE NUMBER OF NEIGHBOUR NODES IN 
+         ! +     WEIGHTF_BJ MAY BE TOO SMALL, NOD IS ', NOD,' NUMBER: ',NN
+      ENDIF
+        ! LITTLE CHANGE TO THE ABOVE SENTENCE IS MADE ON 22/02/2004
+
+        ! THE FOLLOWING SENTENCE IS ADDED ON 2/05/2004 TO 
+        ! WARNING THE CASE WHERE THE NUMBER OF NUMBER NODES IS TOO FEW
+
+        ! IF (NN.LT.3)WRITE(8,*)'THE NUMBER OF NEIGHBOUR NODES IN 
+        ! +   WEIGHTF_BJ MAY BE TOO FEW, NOD IS:', NOD,'NUMBER=',NN
+
+   ENDIF
+
 END SUBROUTINE WEIGHTF_GRAD_2P
 !!------------------------END WEIGHTF_GRAD_2P-------------------------!!
 
