@@ -661,6 +661,22 @@ PROGRAM THREED_BREAKINGWAVE
       CALL PRESSURE_SMOOTH_SHA(LNODE,NPOI1,NODEID(-2:NPOI1), &
          NWALLID,COORX(:,2),COORY(:,2),COORZ(:,2),40,MBAS,KW,R1, &
          DDR,PTMP,P)
+
+      CALL GHOSTPART(LNODE,NPOI1,NODEID(-7:NPOI1),NWALLID, &
+         COORX(:,2),COORY(:,2),COORZ(:,2),NLMAXN,MBAS,KW,R1,DDR,P, &
+         MIRRNP,MIRRXY)
+      !x---------------------------------------------------x!
+
+      PPX = 0.D0
+      PPY = 0.D0
+      PPZ = 0.D0
+
+      !CALL GRADIENT_P(P,WMA)
+      CALL SYSTEM_CLOCK(CPUT%TI(5))
+      CALL GRADIENT_POM_SHA(LNODE,NPOI1,NODEID(-2:NPOI1),NWALLID, &
+         COORX(:,2),COORY(:,2),COORZ(:,2),P)
+      CALL SYSTEM_CLOCK(CPUT%TI(6))
+      
       201 CONTINUE
    ENDDO
 
