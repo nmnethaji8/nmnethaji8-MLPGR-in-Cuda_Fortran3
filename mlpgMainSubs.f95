@@ -207,6 +207,8 @@ SUBROUTINE U_BOUNDARY2(IFSI)
 
    IK = 1
    IK1 = 3
+
+   !$acc kernels loop
    DO 10 INOD=NODEID(-2)+1,NODEID(-1)
       KK=NWALLID(INOD,1)  !COEFFICIENT ABOUT VELOCITY OF WALL PARTICLES
       KK1=NWALLID(INOD,2)
@@ -256,7 +258,7 @@ SUBROUTINE U_BOUNDARY2(IFSI)
          UY(INOD,IK1) = 0.D0
       ENDIF
 10 ENDDO
-   INOD=cudaDeviceSynchronize()
+
 END SUBROUTINE U_BOUNDARY2
 
 !!---------------------------END U_BOUNDARY---------------------------!!
