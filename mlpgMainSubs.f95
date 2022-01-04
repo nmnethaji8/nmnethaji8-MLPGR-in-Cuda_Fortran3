@@ -333,6 +333,24 @@ SUBROUTINE NODEGRID(MESHFILE, FSNOD1, FSNOD2, &
 END SUBROUTINE NODEGRID
 !!----------------------------END NODEGRID----------------------------!!
 
+!!----------------------------MINPRESSURE-----------------------------!!
+SUBROUTINE MINPRESSURE(JET1,PPMIN1,JET2)
+   IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+   DIMENSION PPMIN1(JET1)
+   DO I=1, JET2 
+      DO J=I+1,JET1
+         IF(PPMIN1(J).LT.PPMIN1(I))THEN
+            PMAX=PPMIN1(I)
+            PPMIN1(I)=PPMIN1(J)
+            PPMIN1(J)=PMAX
+         ENDIF
+      ENDDO
+   ENDDO
+
+   RETURN
+END SUBROUTINE MINPRESSURE
+!!--------------------------END MINPRESSURE---------------------------!!
+
 !!--------------------------WEIGHTF_GRAD_2P---------------------------!!
 SUBROUTINE WEIGHTF_GRAD_2P(XQ,YQ,NN,ND,BJX,BJY,NDL,NOD,RNIX,RNIY,RNXY,NLM,IDW,ID_PV,IVIRT)
    USE COMMONMOD
@@ -370,7 +388,7 @@ SUBROUTINE WEIGHTF_GRAD_2P(XQ,YQ,NN,ND,BJX,BJY,NDL,NOD,RNIX,RNIY,RNXY,NLM,IDW,ID
       RETURN
    ENDIF
    ND(0:NLINI)=0
-   
+
    IWALL = 0
    DO IN = 1,NLINI
       I=NLINK(NOD)%I(IN)
@@ -1338,6 +1356,59 @@ SUBROUTINE GRADIENT_2P(NODN,FB)
       RNXY=0
 
       CALL WEIGHTF_GRAD_2P(XI,YI,NN,ND,BJX,BJY,NDL,INOD,RNIX,RNIY,RNXY,NLMAXN,IDWW,1,0)
+
+      IF (NN.LT.3) THEN
+         RNXY=0.D0
+      ENDIF
+
+      DIX=0.D0
+      DIY=0.D0
+      
+      FXI=FB(INOD)  
+
+      DO 10 JN=1,NN
+         NODJ=ND(JN)
+         FXJ=FB(NODJ)
+         DIX=DIX+BJX(JN)*(FXJ-FXI)
+         DIY=DIY+BJY(JN)*(FXJ-FXI)
+
+      10 CONTINUE
+
+         DIFNXY=RNIX*RNIY-RNXY**2
+         DIFNXYAB=ABS(DIFNXY)
+         IF(DIFNXYAB.GT.0.0000000001)THEN
+            PPXI=( DIX*RNIY-DIY*RNXY)/DIFNXY
+            PPYI=(-DIX*RNXY+DIY*RNIX)/DIFNXY
+         ELSEIF(RNIX.NE.0.0)THEN
+            PPXI=DIX/RNIX
+            PPYI=0.D0
+         ELSEIF(RNIY.NE.0.0)THEN
+            PPXI=0.D0
+            PPYI=DIY/RNIY
+         ELSE 
+            !WRITE(8,*)'WARNING ROTATING THE AXES NEEDED',INOD
+         ENDIF
+
+         IF(NODEID(INOD).EQ.8.OR.NODEID(INOD).EQ.3)THEN
+            PPX(INOD,1) = PPX(INOD,1)
+            PPY(INOD,1)=PPXI
+            PPZ(INOD,1)=PPYI
+         ELSEIF(NODEID(INOD).EQ.7.OR.NODEID(INOD).EQ.1)THEN
+            PPX(INOD,1) = PPXI
+            PPY(INOD,1)= PPY(INOD,1)
+            PPZ(INOD,1)=PPYI
+         ENDIF
+         DIX = 0.
+         DIY = 0.
+         PPXI = 0.
+         PPYI = 0.
+
+         DO JJ=1,NN
+            NODJ=ND(JJ)
+            FFF(JJ)=FB(NODJ)
+         ENDDO
+
+         CALL MINPRESSURE(NN,FFF(1:NN),1)
 
    11 CONTINUE
 
