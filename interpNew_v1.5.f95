@@ -1393,7 +1393,7 @@ IMPLICIT NONE
          END IF 
       ENDDO
 
-      DO  IN=1,NLINI  !IN NOT EQUAL TO NOD 
+      DO IN=1,NLINI  !IN NOT EQUAL TO NOD 
 
          I=NLINK(INOD)%I(IN)
          NODIDII=NODEID(INOD)
@@ -1413,10 +1413,10 @@ IMPLICIT NONE
          ENDIF
    
          RATIO=DI/RIAV
-         IF (DI.GE.1.D-10) THEN
+         IF(DI.GE.1.D-10)THEN
             WWI=1-6*(RATIO)**2+8*(RATIO)**3-3*(RATIO)**4 
            
-            IF(NWALLID(I,2).EQ.-10) THEN 
+            IF(NWALLID(I,2).EQ.-10)THEN 
                WWI=-1.D0  !WALL SPECIAL PARTICLE
                RATIO = -1.D0
             END IF
@@ -1445,7 +1445,137 @@ IMPLICIT NONE
          STOP
       ENDIF
 
+      IF(NN.LT.3) THEN
+         RNXY=0.D0
+         RNXZ=0.D0
+         RNYZ=0.D0
+      ENDIF
+
+      A1=1.D0
+      A2=RNXY/RNIX
+      A3=RNXZ/RNIX
+
+      A4=RNXY/RNIY
+      A5=1.D0
+      A6=RNYZ/RNIY
+
+      A7=RNXZ/RNIZ
+      A8=RNYZ/RNIZ
+      A9 =1.D0
+
+      DETER= a1*a5*a9-a1*a8*a6-a2*a4*a9+a2*a6*a7+a3*a4*a8-a3*a7*a5
+
+      AINV11= ((A5*A9)-(A8*A6))/DETER
+      AINV21= (-(A4*A9)+(A7*A6))/DETER
+      AINV31= ((A4*A8)-(A7*A5))/DETER
+
+      AINV12= (-(A2*A9)+(A8*A3))/DETER
+      AINV22= ((A1*A9)-(A7*A3))/DETER
+      AINV32= (-(A1*A8)+(A7*A2))/DETER
+
+      AINV13= ((A2*A6)-(A5*A3))/DETER
+      AINV23= (-(A1*A6)+(A4*A3))/DETER
+      AINV33= ((A1*A5)-(A4*A2))/DETER
+
+      PPXI=AINV11*DIX+AINV12*DIY+AINV13*DIZ
+      PPYI=AINV21*DIX+AINV22*DIY+AINV23*DIZ
+      PPZI=AINV31*DIX+AINV32*DIY+AINV33*DIZ
+      
+      IF((PPXI+1.).EQ.PPXI)THEN
+         PRINT*,'ERRORGRADIENT',PPXI,FB(INOD)
+         PPX(INOD,1) = 0.D0
+      ELSE
+         PPX(INOD,1)=PPXI
+      ENDIF
+
+      IF((PPYI+1.).EQ.PPYI)THEN
+         PRINT*,'ERRORGRADIENT',PPYI,FB(INOD)
+         PPY(INOD,1) = 0.D0
+      ELSE
+         PPY(INOD,1)=PPYI
+      ENDIF
+
+      IF((PPZI+1.).EQ.PPZI)THEN
+         PRINT*,'ERRORGRADIENT',PPZI,FB(INOD)
+         PPZ(INOD,1) = 0.D0
+      ELSE
+         PPZ(INOD,1)=PPZI
+      ENDIF
+      
+      DIX=0.D0
+      DIY=0.D0
+      DIZ=0.D0
+
+      DO  IN=1,NLINI  !IN NOT EQUAL TO NOD 
+         I=NLINK(INOD)%I(IN)
+         NODIDII=NODEID(INOD)
+         NODIDIJ=NODEID(I)
+   
+         XDI=XQ-COORX(I)
+         YDI=YQ-COORY(I)
+         ZDI=ZQ-COORZ(I)
+         DI=DSQRT(XDI**2+YDI**2+ZDI**2)
+   
+         RIAV=R(INOD)+R0(INOD)
+         
+         IF(IWALL.NE.0.AND.Ik.EQ.1)THEN
+           RIAV=R(INOD)+1.5d0*R0(INOD)
+         ENDIF
+         RATIO=DI/RIAV
+         
+         IF(DI.GE.1.D-10)THEN
+           WWI=1-6*(RATIO)**2+8*(RATIO)**3-3*(RATIO)**4 
+           
+            IF(NWALLID(I,2).EQ.-10) THEN 
+               WWI=-1.D0  !WALL SPECIAL PARTICLE
+               RATIO = -1.D0
+            ENDIF
+   
+            IF(NODIDIJ.GE.0.AND.NODIDIJ.LT.10)THEN
+      
+               IF(WWI.GT.1.0E-15)THEN
+                  
+                  BJX=-WWI*XDI/DI/DI 
+                  BJY=-WWI*YDI/DI/DI 
+                  BJZ=-WWI*ZDI/DI/DI  
+   
+                  DIX=DIX+BJX/RNIX*(FB(I)-FFF)   !P/X  
+                  DIY=DIY+BJY/RNIY*(FB(I)-FFF)   !P/Y
+                  DIZ=DIZ+BJZ/RNIZ*(FB(I)-FFF)   !P/Z
+               ENDIF   
+            ENDIF 
+         ENDIF 
+      ENDDO !50      CONTINUE
+   
+      PPXI=AINV11*DIX+AINV12*DIY+AINV13*DIZ
+      PPYI=AINV21*DIX+AINV22*DIY+AINV23*DIZ
+      PPZI=AINV31*DIX+AINV32*DIY+AINV33*DIZ
+   
+      IF((PPXI+1.).EQ.PPXI)THEN
+         PRINT*,'ERRORGRADIENT',PPXI,FB(INOD)
+         PPX(INOD,2)=0.D0
+      ELSE
+         PPX(INOD,2)=PPXI
+      ENDIF
+   
+      IF((PPYI+1.).EQ.PPYI) THEN
+         PRINT*,'ERRORGRADIENT',PPYI,FB(INOD)
+         PPY(INOD,2) = 0.D0
+      ELSE
+         PPY(INOD,2)=PPYI
+      END IF
+       
+      IF ((PPZI+1.).EQ.PPZI) THEN
+         PRINT*,'ERRORGRADIENT',PPZI,FB(INOD)
+         PPZ(INOD,2) = 0.D0
+      ELSE
+         PPZ(INOD,2)=PPZI
+      ENDIF
+
    ENDDO
    !$acc end kernels
+
+   WRITE(8,*)'[MSG] EXITING GRADIENT_POM' 
+   WRITE(9,*),PPX(:,:),PPY(:,:),PPZ(:,:)
 
 END SUBROUTINE GRADIENT_POM_SHA
