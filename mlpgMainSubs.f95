@@ -333,6 +333,7 @@ SUBROUTINE NODEGRID(MESHFILE, FSNOD1, FSNOD2, &
 END SUBROUTINE NODEGRID
 !!----------------------------END NODEGRID----------------------------!!
 
+
 !!----------------------------FIND_LAPLAC-----------------------------!!
 SUBROUTINE FIND_LAPLAC(NODN, UN)
    USE COMMONMOD
@@ -1178,3 +1179,15 @@ SUBROUTINE JUDGEBOTTOM(LNODE, NODN, NODEID, NWALLID, CORX, CORY, CORZ, DDR, FSSR
 END SUBROUTINE JUDGEBOTTOM
 
 !!---------------------------END JUDGEBOTTOM--------------------------!!
+
+!!----------------------------GRADIENT_2P-----------------------------!!
+SUBROUTINE GRADIENT_2P(NODN,FB)
+   USE COMMONMOD
+   USE MLPGKINE
+   IMPLICIT NONE
+
+   INTEGER(KIND=4),INTENT(IN)::NODN
+   REAL(KIND=8),INTENT(IN)::FB(NODN)
+
+
+END SUBROUTINE GRADIENT_2P
