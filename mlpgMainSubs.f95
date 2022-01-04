@@ -1409,6 +1409,46 @@ SUBROUTINE GRADIENT_2P(NODN,FB)
          ENDDO
 
          CALL MINPRESSURE(NN,FFF(1:NN),1)
+         FXI1 = MIN(FFF(1),FXI)
+         DO JN=1,NN
+            NODJ=ND(JN)
+            FXJ=FB(NODJ)
+            DIX=DIX+BJX(JN)*(FXJ-FXI1)
+            DIY=DIY+BJY(JN)*(FXJ-FXI1)
+         ENDDO
+
+         DIFNXY=RNIX*RNIY-RNXY**2
+         DIFNXYAB=ABS(DIFNXY)
+         IF(DIFNXYAB.GT.0.0000000001)THEN
+            PPXI=( DIX*RNIY-DIY*RNXY)/DIFNXY
+            PPYI=(-DIX*RNXY+DIY*RNIX)/DIFNXY
+         ELSEIF(RNIX.NE.0.0)THEN
+            PPXI=DIX/RNIX
+            PPYI=0.D0
+         ELSEIF(RNIY.NE.0.0)THEN
+            PPXI=0.D0
+            PPYI=DIY/RNIY
+         ELSE 
+            ! WRITE(8,*)'WARNING ROTATING THE AXES NEEDED',INOD
+         ENDIF
+
+
+         IF(NODEID(INOD).EQ.8.OR.NODEID(INOD).EQ.3)THEN
+            PPX(INOD,2)=PPX(INOD,2)
+            PPY(INOD,2)=PPXI
+            PPZ(INOD,2)=PPYI
+         ELSEIF(NODEID(INOD).EQ.7.OR.NODEID(INOD).EQ.1)THEN
+         IF(NWALLID(INOD,1).NE.5)THEN
+            PPX(INOD,2)=PPXI
+            PPY(INOD,2)=PPY(INOD,1)
+            PPZ(INOD,2)=PPYI
+         ELSE
+            PPX(INOD,2)=PPX(INOD,1)
+            PPY(INOD,2)=PPY(INOD,1)
+            PPZ(INOD,2)=PPz(INOD,1)
+         ENDIF
+      ENDIF
+
 
    11 CONTINUE
 
