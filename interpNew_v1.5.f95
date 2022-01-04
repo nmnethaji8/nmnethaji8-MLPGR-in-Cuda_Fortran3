@@ -1303,7 +1303,7 @@ IMPLICIT NONE
    NODTAL=NODEID(-1)  !ONLY THE WATER PARTICLE UPDATE
    IK=1
 
-   !$acc kernels
+   !$acc kernels loop gang
    DO INOD=1,NODTAL
 
       PPXI=0.0
@@ -1336,7 +1336,7 @@ IMPLICIT NONE
       FFF = FB(INOD)
   
       IWALL=0
-      !$acc loop
+      !$acc loop vector
       DO IN=1,NLINI
 
          I=NLINK(INOD)%I(IN)
@@ -1349,7 +1349,7 @@ IMPLICIT NONE
       DIY=0D0
       DIZ=0D0
 
-      !$acc loop
+      !$acc loop vector
       DO IN=1,NLINI
 
          I=NLINK(INOD)%I(IN)
@@ -1393,6 +1393,7 @@ IMPLICIT NONE
          END IF 
       ENDDO
 
+      !$acc loop vector
       DO IN=1,NLINI  !IN NOT EQUAL TO NOD 
 
          I=NLINK(INOD)%I(IN)
@@ -1506,6 +1507,7 @@ IMPLICIT NONE
       DIY=0.D0
       DIZ=0.D0
 
+      !$acc loop vector
       DO  IN=1,NLINI  !IN NOT EQUAL TO NOD 
          I=NLINK(INOD)%I(IN)
          NODIDII=NODEID(INOD)
@@ -1573,9 +1575,7 @@ IMPLICIT NONE
       ENDIF
 
    ENDDO
-   !$acc end kernels
 
-   WRITE(8,*)'[MSG] EXITING GRADIENT_POM' 
-   WRITE(9,*),PPX(:,:),PPY(:,:),PPZ(:,:)
+   WRITE(8,*)'[MSG] EXITING GRADIENT_POM'
 
 END SUBROUTINE GRADIENT_POM_SHA
