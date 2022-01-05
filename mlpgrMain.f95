@@ -68,7 +68,7 @@ PROGRAM THREED_BREAKINGWAVE
 
    I=cudaDeviceGetLimit( val, cudaLimitMallocHeapSize )
    PRINT*,"cudaLimitMallocHeapSize",val
-   val=val*(2**6)
+   val=val*(2**8)
    I = cudaDeviceSetLimit(cudaLimitMallocHeapSize,val)
    PRINT*,"cudaLimitMallocHeapSize",val
 
@@ -708,7 +708,7 @@ PROGRAM THREED_BREAKINGWAVE
 
       !NLMAXN=27
       CALL VELOCITY_SMOOTH_SHA(LNODE,NPOI1,NODEID(-2:NPOI1),NWALLID, &
-         COORX(:,2),COORY(:,2),COORZ(:,2),40,MBAS,KW,R1,DDR)
+         COORX(:,2),COORY(:,2),COORZ(:,2),28,MBAS,KW,R1,DDR)
 
       201 CONTINUE
    ENDDO
