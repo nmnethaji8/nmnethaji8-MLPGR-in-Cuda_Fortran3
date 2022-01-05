@@ -350,8 +350,85 @@ SUBROUTINE UPDATE_CO(CSUXT1,CSUYT1,CSUZT1)
    CSUYT1(:,1)=UY(:,1)
    CSUZT1(:,1)=UZ(:,1)
    
-   END SUBROUTINE UPDATE_CO
+END SUBROUTINE UPDATE_CO
 !!-----------------------------UPDATE_CO------------------------------!!
+
+!!------------------------------NEWCOOR5------------------------------!!
+SUBROUTINE NEWCOOR5(BNDNP,BNDXY,BNDFIX,FSNOD1,FSNOD2,DDR,DOMX,DOMY,DOMZ)
+   USE COMMONMOD
+   USE MLPGKINE
+   USE NEIGHNODES
+   IMPLICIT NONE
+   
+   INTEGER(KIND=4),INTENT(IN)::FSNOD1,FSNOD2,BNDNP
+   INTEGER(KIND=4),INTENT(IN)::BNDFIX(3,0:BNDNP)
+   REAL(KIND=8),INTENT(IN)::BNDXY(BNDNP,3)
+   REAL(KIND=8),INTENT(IN)::DDR(NODEID(0))
+   REAL(KIND=8),INTENT(IN)::DOMX(2),DOMY(2),DOMZ(2)
+
+   INTEGER(KIND=4)::IK,II,IJ,IMINI,IMINJ,ICOUNT
+   INTEGER(KIND=4)::I,NNEI2,I2,J
+   REAL(KIND=8)::TMPR1,TMPR7,TMPR4,TMPR5,TMPR6,RIAV
+   REAL(KIND=8)::DRMIN,BOTXLIM
+
+   WRITE(8,*)'[MSG] ENTERING NEWCOOR4'
+    
+   DRMIN=0.0001D0      
+   BOTXLIM=5D0
+
+   !! WAVEMAKER READJUST
+   IK=FSNOD2-NODEID(-2)
+   TMPR1=COORZ(FSNOD2,1)/BNDXY(IK,3)
+   DO II=NODEID(-2)+1,NODEID(-3)
+      IK=II-NODEID(-2)
+      COORZ(II,1)=TMPR1*BNDXY(IK,3)
+   ENDDO
+
+      !! FIX BOTTOM NODES
+   DO II = NODEID(-3)+1, NODEID(-4)
+      IK = II - NODEID(-2)
+      COORX(II,1) = BNDXY(IK,1)
+      COORY(II,1) = BNDXY(IK,2)
+      COORZ(II,1) = BNDXY(IK,3)
+   ENDDO      
+
+   ! Detecting if two nodes are too close      
+   IMINI=1; IMINJ=1
+   TMPR1=10000D0      
+   !WRITE(8,*)'[TCL] Too Close', RIAV
+   ICOUNT=0
+   DO I=1,NODEID(-1)               
+
+      NNEI2=NLINK(I)%I(0)        
+      RIAV=0.2*DDR(I)
+
+      DO I2=1,NNEI2
+         J=NLINK(I)%I(I2)
+         IF(I.EQ.J) CYCLE          
+
+         TMPR4=COORX(J,1)-COORX(I,1)
+         TMPR5=COORY(J,1)-COORY(I,1)
+         TMPR6=COORZ(J,1)-COORZ(I,1)
+         TMPR7=DSQRT(TMPR4**2 + TMPR5**2 + TMPR6**2)
+          
+         IF(TMPR7.LT.TMPR1)THEN
+            TMPR1=TMPR7
+            IMINI=I
+            IMINJ=J
+         ENDIF
+
+         IF(TMPR7.LE.RIAV)THEN
+            ICOUNT=ICOUNT+1   
+            WRITE(8,'(A6,2I10,2I5,2F15.6)')'[TCL]',I,J,NODEID(I),NODEID(J),TMPR7,DDR(I)           
+         ENDIF
+      ENDDO      
+   ENDDO
+   WRITE(8,*)'[TCL] Total',ICOUNT
+   WRITE(8,'(A8,F15.6,4I10)')'[MINR] ',TMPR1,IMINI,IMINJ,NODEID(IMINI),NODEID(IMINJ)
+
+END SUBROUTINE NEWCOOR5
+!!------------------------------NEWCOOR5------------------------------!!      
+
 
 
 !!--------------------------GIVENINITIALV_P---------------------------!!
