@@ -323,6 +323,37 @@ END SUBROUTINE BOTSLIPBC
 
 !!---------------------------END BOTSLIPBC----------------------------!!
 
+!!-----------------------------UPDATE_CO------------------------------!!
+SUBROUTINE UPDATE_CO(CSUXT1,CSUYT1,CSUZT1)
+   USE COMMONMOD
+   USE MLPGKINE
+   IMPLICIT NONE
+   !INCLUDE 'COMMON.F'
+
+   REAL(KIND=8),INTENT(INOUT)::CSUXT1(LNODE,1),CSUYT1(LNODE,1)
+   REAL(KIND=8),INTENT(INOUT)::CSUZT1(LNODE,1)
+
+   INTEGER(KIND=4)::INOD,NODTAL
+
+   NODTAL=NODEID(-1)  !ONLY THE WATER PARTICLE UPDATE
+   COORX(:,3)=COORX(:,2)
+   COORY(:,3)=COORY(:,2)
+   COORZ(:,3)=COORZ(:,2)
+   DO INOD=1,NODTAL
+     COORX(INOD,1)=COORX(INOD,2)+UX(INOD,1)*DT  
+     COORY(INOD,1)=COORY(INOD,2)+UY(INOD,1)*DT  
+     COORZ(INOD,1)=COORZ(INOD,2)+UZ(INOD,1)*DT  
+   ENDDO
+   
+   ! Shagun edit
+   CSUXT1(:,1)=UX(:,1)
+   CSUYT1(:,1)=UY(:,1)
+   CSUZT1(:,1)=UZ(:,1)
+   
+   END SUBROUTINE UPDATE_CO
+!!-----------------------------UPDATE_CO------------------------------!!
+
+
 !!--------------------------GIVENINITIALV_P---------------------------!!
 SUBROUTINE GIVENINITIALV_P(NODN,PTMP)
    USE COMMONMOD
