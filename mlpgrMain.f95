@@ -68,7 +68,7 @@ PROGRAM THREED_BREAKINGWAVE
 
    I=cudaDeviceGetLimit( val, cudaLimitMallocHeapSize )
    PRINT*,"cudaLimitMallocHeapSize",val
-   val=val*(2**8)
+   val=val*(2**9)
    I = cudaDeviceSetLimit(cudaLimitMallocHeapSize,val)
    PRINT*,"cudaLimitMallocHeapSize",val
 
