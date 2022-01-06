@@ -68,7 +68,7 @@ PROGRAM THREED_BREAKINGWAVE
 
    I=cudaDeviceGetLimit( val, cudaLimitMallocHeapSize )
    PRINT*,"cudaLimitMallocHeapSize",val
-   val=val*(2**9)
+   val=val*(2**8)
    I = cudaDeviceSetLimit(cudaLimitMallocHeapSize,val)
    PRINT*,"cudaLimitMallocHeapSize",val
 
@@ -766,6 +766,11 @@ PROGRAM THREED_BREAKINGWAVE
       CALL FSDOM%FILLCELL(NFS,XFS(1:NFS),YFS(1:NFS),ZFSTMP(1:NFS), &
          RCELL*DDL,DOMBL,DOMTR)
 
+      ! WAVE PROBES
+      !NLMAXN DON'T KNOW 50
+      CALL MLPG_GET_ETA(FSDOM, NFS, XFS(1:NFS), YFS(1:NFS),  &
+         ZFS(1:NFS), WP%NP, WP%XYZ(:,1), WP%XYZ(:,2), WP%XYZ(:,3), &
+         ERRTMP(1:WP%NP), DDL, 50, 1) 
       201 CONTINUE
    ENDDO
 
