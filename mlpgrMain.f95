@@ -867,8 +867,17 @@ PROGRAM THREED_BREAKINGWAVE
       CALL VOLPL%CALCVOL(I, ERRTMP(1:I), DOMZ(2), TMPR1)
       WRITE(8,'(" [INF] VOLUME ",F15.6)')TMPR1
       !!----------------------END FLUX CALC----------------------!!
-         
-      201 CONTINUE
+      
+      !RESUME WRITE
+      IF((ISTEP.NE.0) .AND. (MOD(ISTEP, RESFREQ).EQ.0))THEN
+         CALL WRITERESUME(ISTEP, DDR, FSSRCH , P)
+      ENDIF
+
+201   CONTINUE
+      CALL OUTPUT(STEP0,ISTEP,IPRINT,I_PF,I_PF1,ERRSOL,DDR,P)
+      WRITE(1617,'("THAT WAS TIME = ",F15.6)')TOTAL_TIME    
+      WRITE(1617,*)
+      
    ENDDO
 
 END PROGRAM THREED_BREAKINGWAVE
@@ -1030,6 +1039,117 @@ SUBROUTINE INPUT(LNODETMP, H0, DDL, SCALE, KW, MBAS, DT,  &
    RETURN
 END SUBROUTINE INPUT
 !!----------------------------END INPUT----------------------------!!
+
+!!-----------------------------OUTPUT------------------------------!!
+SUBROUTINE OUTPUT(STEP0,ISTEP,IPRINT,I_PF,I_PF1,ERRSOL,DDR,PRE)
+   USE COMMONMOD
+   USE MLPGKINE
+   IMPLICIT NONE
+!INCLUDE 'COMMON.F'
+
+   INTEGER(KIND=4),INTENT(IN)::ISTEP,IPRINT,I_PF,I_PF1,STEP0,ERRSOL
+   REAL(KIND=8),INTENT(IN)::DDR(NODEID(0)),PRE(LNODE)
+
+   INTEGER(KIND=4)::NGHST,I,IEND
+
+
+   !HERE ONLY OUTPUT THE DATA OF WATER PARTICLES EVERY I_PF TIME STEP
+
+   ! IF((ISTEP.LE.IPRINT.AND. &
+   !   ((MOD(ISTEP,I_PF).EQ.0).OR.(MOD(ISTEP,I_PF).EQ.I_PF-1))).OR. &
+   !   (ISTEP.GT.IPRINT.AND. &
+   !   ((MOD(ISTEP,I_PF1).EQ.0).OR.(MOD(ISTEP,I_PF1).EQ.I_PF1-1))))THEN
+
+   IF( ( ISTEP.LE.IPRINT .AND. (MOD(ISTEP,I_PF).EQ.0) ) .OR. &
+      ( ISTEP.GT.IPRINT .AND. (MOD(ISTEP,I_PF1).EQ.0) ) .OR. &
+      ( ERRSOL .EQ. 1) )THEN
+
+
+      IF (ISTEP.EQ.STEP0)THEN
+         OPEN(130,FILE='Output/XY_LOCATION.DAT',STATUS='UNKNOWN')
+         ! NGHST=0
+         ! DO I=NODEID(-1)+1,NODEID(0)
+         !   IF(NODEID(I).EQ.-9)NGHST=NGHST+1
+         ! ENDDO
+
+         ! WRITE(130,'(3I8,1F10.4,3I8)') NODEID(-1)+NGHST,NODEID(-2), &
+         !   NODEID(-4),DT,IPRINT,I_PF,I_PF1
+
+      ELSE !IF(ISTEP.EQ.ISTART.AND.NSTAGE.EQ.1)THEN
+         OPEN(130,FILE='Output/XY_LOCATION.DAT', &
+            ACCESS='SEQUENTIAL',POSITION='APPEND')
+
+      ENDIF
+
+
+      NGHST=0
+      DO I=NODEID(-1)+1,NODEID(0)
+         IF(NODEID(I).EQ.-9)NGHST=NGHST+1
+      ENDDO
+
+      WRITE(130,'(3I8,1F10.4,3I8)') NODEID(-1)+NGHST,NODEID(-2), &
+         NODEID(-4),DT,IPRINT,I_PF,I_PF1
+
+      WRITE(130,'(A, F15.6, I10)')'TIME=',TOTAL_TIME,ISTEP
+
+      IEND=NODEID(-1)
+      DO I=1,IEND
+         IF(ABS(COORX(I,1)).LE.70.AND.ABS(COORY(I,2)) &
+            .LE.70.AND.ABS(COORZ(I,2)).LE.70)THEN
+
+            IF((NWALLID(I,2).EQ.-10).AND.(NODEID(I).EQ.9))THEN
+               WRITE(130,'(8E20.8,1I4)')COORX(I,1),COORY(I,1),-0.2, &
+                  PRE(I),UX(I,1),UY(I,1),UZ(I,1),DDR(I),NODEID(I)
+               CYCLE
+            ENDIF
+
+            WRITE(130,'(8E20.8,1I4)')COORX(I,1),COORY(I,1),COORZ(I,1), &
+               PRE(I),UX(I,1),UY(I,1),UZ(I,1),DDR(I),NODEID(I)
+
+         ELSE
+            WRITE(130,'(8F16.8,1I4)') -10.,-10.,-10.,0,0,0,0, &
+               DDR(I),NODEID(I)
+         ENDIF
+      ENDDO
+
+      DO I=NODEID(-1)+1,NODEID(0)
+         IF(NODEID(I).EQ.-9)THEN
+            IF(NWALLID(I,2).EQ.-10)THEN
+               WRITE(130,'(8E20.8,1I4)')COORX(I,1),COORY(I,1),-0.2, &
+                  PRE(I),UX(I,1),UY(I,1),UZ(I,1),DDR(I),NODEID(I)
+               CYCLE
+            ENDIF
+
+            WRITE(130,'(8E20.8,1I4)')COORX(I,1),COORY(I,1),COORZ(I,1), &
+               PRE(I),UX(I,1),UY(I,1),UZ(I,1),DDR(I),NODEID(I)
+         ENDIF
+      ENDDO
+
+      WRITE(130,*)'****'
+      CLOSE (130)
+   ENDIF
+   !CLOSE (130)
+
+   !  IF(MOD(ISTEP,1).EQ.0)THEN
+   !    OPEN(110,FILE='Export//XYLOCATION.DAT',STATUS='UNKNOWN')
+   !    IEND=NODEID(0)
+   !    DO I=1,IEND
+   !      IF(I.LE.NODEID(-2))THEN
+   !        WRITE(110,'(5F21.4,3I8)')COORX(I,1),COORY(I,1),COORZ(I,1),
+   ! +                                  PRE(I),DN1(I)/DN00,NODEID(I),
+   ! +                                  NWALLID(I,1),NWALLID(I,2)
+   !      ELSE
+   !        WRITE(110,'(5F21.4,3I8)')COORX(I,1),COORY(I,1),COORZ(I,1),
+   ! +                                  PRE(I),DN1(I)/DN00,NODEID(I), !,NWALLID(I,1) !NWALLID(I,2)
+   ! +                                  NWALLID(I,1),NWALLID(I,2)
+   !      ENDIF
+   !    ENDDO
+   !    CLOSE (110)
+   !  ENDIF
+
+END SUBROUTINE OUTPUT
+!!---------------------------END OUTPUT----------------------------!!
+
 
 
 !!--------------------------SETFLUXPLANE---------------------------!!
