@@ -770,7 +770,56 @@ PROGRAM THREED_BREAKINGWAVE
       !NLMAXN DON'T KNOW 50
       CALL MLPG_GET_ETA(FSDOM, NFS, XFS(1:NFS), YFS(1:NFS),  &
          ZFS(1:NFS), WP%NP, WP%XYZ(:,1), WP%XYZ(:,2), WP%XYZ(:,3), &
-         ERRTMP(1:WP%NP), DDL, 50, 1) 
+         ERRTMP(1:WP%NP), DDL, 50, 1)
+      
+      WRITE(WP%FILE, '(E20.8)', ADVANCE='NO') TOTAL_TIME
+      DO IX=1,WP%NP
+         WRITE(WP%FILE, '(E20.8)', ADVANCE='NO') WP%XYZ(IX,3)
+      ENDDO
+      WRITE(WP%FILE,*)
+
+      ! PRESSURE PROBES
+      TMPR1=0.1D0 !Pressure PROBE RADIUS
+      DO IX=1,PP%NP
+         TMPR7=0D0
+         TMPR6=0D0
+         DO IY=NODEID(-7)+1,NODEID(-1)
+            TMPR2=DSQRT((PP%XYZ(IX,1)-COORX(IY,1))**2 &
+               + (PP%XYZ(IX,2)-COORY(IY,1))**2 &
+               + (PP%XYZ(IX,3)-COORZ(IY,1))**2)/TMPR1
+            IF(TMPR2.LE.0.5D0)THEN
+               TMPR3=2D0/3D0 -4D0*TMPR2**2+4D0*TMPR2**3
+               TMPR7=TMPR7+TMPR3
+               TMPR6=TMPR6+(TMPR3*P(IY))
+            ELSE IF(TMPR2.LE.1D0)THEN
+               TMPR3=4D0/3D0 -4D0*TMPR2+4D0*TMPR2**2-4D0/3D0*TMPR2**3
+               TMPR7=TMPR7+TMPR3
+               TMPR6=TMPR6+(TMPR3*P(IY))
+            ENDIF
+         ENDDO
+         IF(TMPR7.EQ.0D0)THEN
+            WRITE(8,*)'[ERR] CHECK PRESS PROBE RADIUS FOR PP',IX
+            PP%DATA(IX,1)=0D0
+         ENDIF
+         PP%DATA(IX,1)=TMPR6/TMPR7
+      ENDDO
+      WRITE(PP%FILE, '(E20.8)', ADVANCE='NO') TOTAL_TIME
+      DO IX=1,PP%NP
+         WRITE(PP%FILE, '(E20.8)', ADVANCE='NO') PP%DATA(IX,1)
+      ENDDO
+      WRITE(PP%FILE,*)
+
+      !!------------------------FLUX CALC------------------------!!
+      ! FLUXPLANE FLUXIN
+      F_PT => FLUXIN
+      I = F_PT%NXY
+      !NLMAXN=50 DONT KNOW
+      CALL MLPG_GET_ETA(FSDOM, NFS, XFS(1:NFS), YFS(1:NFS),  &
+         ZFS(1:NFS), I, F_PT%XFS, F_PT%YFS, F_PT%ZFS, &
+         ERRTMP(1:I), DDL, 50, 0) 
+      J = SUM(ERRTMP(1:I))
+      WRITE(8,'(" [INF] ERROR STATE IN FLUXIN ETA ",I10)') J
+         
       201 CONTINUE
    ENDDO
 
