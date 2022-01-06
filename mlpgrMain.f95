@@ -819,6 +819,18 @@ PROGRAM THREED_BREAKINGWAVE
          ERRTMP(1:I), DDL, 50, 0) 
       J = SUM(ERRTMP(1:I))
       WRITE(8,'(" [INF] ERROR STATE IN FLUXIN ETA ",I10)') J
+
+      TMPR1 = 0D0
+      IF(J.EQ.0)THEN
+         CALL F_PT%GENPLANEPOI
+         I = NODEID(-1)
+         CALL MLPG_GET_UP2(MLDOM, LNODE, NODEID(-7:I), NWALLID, I, &
+            COORX(1:I,1), COORY(1:I,1), COORZ(1:I,1), &
+         UX(1:I,1), UY(1:I,1), UZ(1:I,1), P(1:I), &
+         F_PT%NP, F_PT%X, F_PT%Y, F_PT%Z, &
+         F_PT%U, F_PT%V, F_PT%W, F_PT%P, DDL, NLMAXN)
+         CALL F_PT%CALCMASFLUX(1000D0, TMPR1)
+      ENDIF
          
       201 CONTINUE
    ENDDO
