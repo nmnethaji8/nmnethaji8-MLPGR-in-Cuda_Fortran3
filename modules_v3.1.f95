@@ -154,6 +154,8 @@ MODULE FLUXPLANEMOD
 
    CONTAINS
       PROCEDURE :: SETFLUXPLANE
+      PROCEDURE :: GENPLANEPOI
+      PROCEDURE :: CALCMASFLUX
 
    END TYPE FLUXPLANE
 
@@ -225,6 +227,79 @@ CONTAINS
       ENDDO
 
    END SUBROUTINE SETFLUXPLANE
+
+   SUBROUTINE GENPLANEPOI(F)
+      IMPLICIT NONE
+
+      CLASS(FLUXPLANE),INTENT(INOUT)::F
+      INTEGER(KIND=4)::I, J, I2
+      REAL(KIND=8)::X, Y, Z0, Z, DXY, DZ, W1, W2
+
+      IF( (MOD(F%NXY,2) .EQ. 0) .OR. (MOD(F%NZ,2) .EQ. 0) ) THEN
+         WRITE(8, '(" [ERR] ENSURE F%NXY AND F%NZ ARE BOTH ODD FOR SIMPSON INTEG")')
+         WRITE(8, '(" [---] F%NXY, F%NZ ")') F%NXY, F%NZ
+         STOP
+      ENDIF
+
+      W1 = F%TR(1) - F%BL(1)
+      W2 = F%TR(2) - F%BL(2)
+      DXY = DSQRT(W1**2 + W2**2) / (F%NXY - 1)
+      Z0 = F%BL(3)
+
+      DO I = 1, F%NXY
+         X = F%XFS(I)
+         Y = F%YFS(I)
+         DZ = (F%ZFS(I) - Z0) / (F%NZ - 1)
+
+         ! XY WEIGHT SIMPSON 3 POINT
+         IF( (I.EQ.1) .OR. (I.EQ.F%NXY) )THEN
+            W1 = 1D0
+         ELSEIF( MOD(I,2).EQ.0 )THEN
+            W1 = 4D0
+         ELSE
+            W1 = 2D0
+         ENDIF
+         W1 = W1*DXY/3D0
+
+         DO J = 1, F%NZ
+            I2 = (I-1)*F%NZ + J
+            F%X(I2) = X
+            F%Y(I2) = Y
+            F%Z(I2) = Z0 + (J-1)*DZ
+
+            ! Z WEIGHT SIMPSON 3 POINT
+            IF( (J.EQ.1) .OR. (J.EQ.F%NZ) )THEN
+               W2 = 1D0
+            ELSEIF( MOD(J,2).EQ.0 )THEN
+               W2 = 4D0
+            ELSE
+               W2 = 2D0
+            ENDIF
+            W2 = W2*DZ/3D0
+
+            F%WEI(I2) = ABS(W1*W2)
+         ENDDO
+      ENDDO
+
+   END SUBROUTINE GENPLANEPOI
+
+   SUBROUTINE CALCMASFLUX(F, RHOW, MASFLUX)
+      IMPLICIT NONE
+
+      CLASS(FLUXPLANE),INTENT(INOUT)::F
+      REAL(KIND=8),INTENT(IN)::RHOW
+      REAL(KIND=8),INTENT(OUT)::MASFLUX
+
+      INTEGER(KIND=4)::I
+      REAL(KIND=8)::VN
+
+      MASFLUX = 0D0
+      DO I = 1, F%NP
+         VN = F%U(I)*F%NORM(1) + F%V(I)*F%NORM(2) + F%W(I)*F%NORM(3)
+         MASFLUX = MASFLUX + (F%WEI(I) * VN * RHOW)
+      ENDDO
+
+   END SUBROUTINE CALCMASFLUX
 
 END MODULE FLUXPLANEMOD
 !!------------------------END FLUXPLANEMOD-------------------------!!
