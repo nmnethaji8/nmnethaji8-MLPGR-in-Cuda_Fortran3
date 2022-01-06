@@ -737,6 +737,35 @@ PROGRAM THREED_BREAKINGWAVE
       !Fixing the location of the cylinder nodes
       CALL FIXCYLINDER(BNDNP,BNDXY)
 
+      !-------------------------------
+      ! END OF UPDATE ------
+      !-------------------------------      
+
+      ! FS DOMAIN
+      NFS=0
+      DO I=1,NODEID(-2)
+         IF(NODEID(I).EQ.4)THEN
+            NFS=NFS+1
+            XFS(NFS)=COORX(I,1)
+            YFS(NFS)=COORY(I,1)
+            ZFS(NFS)=COORZ(I,1)
+         ENDIF
+      ENDDO
+      DO I=1,BNDFS(0)          
+         NFS=NFS+1
+         XFS(NFS)=COORX(BNDFS(I),1)
+         YFS(NFS)=COORY(BNDFS(I),1)
+         ZFS(NFS)=COORZ(BNDFS(I),1)
+      ENDDO
+      DOMBL(1)=MINVAL(XFS)
+      DOMBL(2)=MINVAL(YFS)
+      DOMBL(3)=0D0
+      DOMTR(1)=MAXVAL(XFS)
+      DOMTR(2)=MAXVAL(YFS)
+      DOMTR(3)=0D0
+      CALL FSDOM%FILLCELL(NFS,XFS(1:NFS),YFS(1:NFS),ZFSTMP(1:NFS), &
+         RCELL*DDL,DOMBL,DOMTR)
+
       201 CONTINUE
    ENDDO
 
