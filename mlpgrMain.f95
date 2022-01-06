@@ -734,7 +734,8 @@ PROGRAM THREED_BREAKINGWAVE
          DDR(1:NPOI1), SNX, SNY, SNZ, SMX, SMY, SMZ, SSX, SSY, SSZ, &
          UX(1:NPOI1,1), UY(1:NPOI1,1), UZ(1:NPOI1,1))
 
-      WRITE(9,*),UX(NODEID(-3)+1:NODEID(-4),1),UY(NODEID(-3)+1:NODEID(-4),1),UZ(NODEID(-3)+1:NODEID(-4),1)
+      !Fixing the location of the cylinder nodes
+      CALL FIXCYLINDER(BNDNP,BNDXY)
 
       201 CONTINUE
    ENDDO

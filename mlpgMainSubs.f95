@@ -1269,6 +1269,30 @@ SUBROUTINE SRI2(LNODE,NODN,NODEID,NWALLID,COORX,COORY,COORZ, DDR,FSSRCH,H0)
 END SUBROUTINE SRI2
 !!--------------------------------SRI2--------------------------------!!
 
+!!----------------------------FIXCYLINDER-----------------------------!!
+SUBROUTINE FIXCYLINDER(BNDNP,BNDXY)
+   USE COMMONMOD
+   IMPLICIT NONE
+   !INCLUDE 'COMMON.F'
+
+   INTEGER(KIND=4),INTENT(IN)::BNDNP
+   REAL(KIND=8),INTENT(IN)::BNDXY(BNDNP,3)
+
+   INTEGER(KIND=4)::II,IK      
+
+   DO II=NODEID(-7)+1,NODEID(-1)
+     IK=II-NODEID(-2)
+     COORX(II,1:2)=BNDXY(IK,1)
+     COORY(II,1:2)=BNDXY(IK,2)
+     COORZ(II,1:2)=BNDXY(IK,3)
+   ENDDO
+
+   RETURN
+END SUBROUTINE FIXCYLINDER
+!!--------------------------END FIXCYLINDER---------------------------!!      
+
+
+
 !!------------------------JUDGEFREESURFACE_SHA------------------------!!
 SUBROUTINE JUDGEFREESURFACE_SHA(DDR,FSSRCH,SPONGEX)
    USE COMMONMOD
