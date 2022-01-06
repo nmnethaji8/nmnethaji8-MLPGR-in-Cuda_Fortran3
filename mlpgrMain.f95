@@ -832,6 +832,29 @@ PROGRAM THREED_BREAKINGWAVE
          F_PT%U, F_PT%V, F_PT%W, F_PT%P, DDL, NLMAXN)
          CALL F_PT%CALCMASFLUX(1000D0, TMPR1)
       ENDIF
+
+      ! FLUXPLANE FLUXOT
+      F_PT => FLUXOT
+      I = F_PT%NXY
+      !NLMAX=50 GUESS
+      CALL MLPG_GET_ETA(FSDOM, NFS, XFS(1:NFS), YFS(1:NFS),  &
+         ZFS(1:NFS), I, F_PT%XFS, F_PT%YFS, F_PT%ZFS, &
+         ERRTMP(1:I), DDL, 50, 0) 
+      J = SUM(ERRTMP(1:I))
+      WRITE(8,'(" [INF] ERROR STATE IN FLUXOT ETA ",I10)') J
+      TMPR2 = 0D0
+      IF(J.EQ.0)THEN
+         CALL F_PT%GENPLANEPOI
+         I = NODEID(-1)
+         !NLMAX=50 GUESS
+         CALL MLPG_GET_UP2(MLDOM, LNODE, NODEID(-7:I), NWALLID, I, &
+            COORX(1:I,1), COORY(1:I,1), COORZ(1:I,1), &
+            UX(1:I,1), UY(1:I,1), UZ(1:I,1), P(1:I), &
+            F_PT%NP, F_PT%X, F_PT%Y, F_PT%Z, &
+            F_PT%U, F_PT%V, F_PT%W, F_PT%P, DDL, 50)
+         CALL F_PT%CALCMASFLUX(1000D0, TMPR2)
+      ENDIF
+      WRITE(8,'(" [FLX] FLUXIN FLUXOT ",2F15.6)')TMPR1, TMPR2
          
       201 CONTINUE
    ENDDO
