@@ -424,7 +424,7 @@ PROGRAM THREED_BREAKINGWAVE
             CM%UX(1:I),CM%UY(1:I),CM%UZ(1:I),CM%PR(1:I), &
             J,MM%CX(1:J),MM%CY(1:J),MM%CZ(1:J), &
             MM%UX(1:J),MM%UY(1:J),MM%UZ(1:J),MM%PR(1:J),DDL,62)
-         
+
          DO I = 1, MM%NP
             IX = MMTOIM(I)
             COORX(IX,1)=MM%CX(I)
@@ -501,7 +501,7 @@ PROGRAM THREED_BREAKINGWAVE
 
          CALL NODELINK_3_SHA(MLDOM,LNODE,NPOI1,SCALE,DDL,DDR, &
             NODEID(-2:NPOI1),NWALLID,COORX(:,1),COORY(:,1),COORZ(:,1))
-         
+
          CALL JUDGEBOTTOM(LNODE, NPOI1, NODEID(-7:NPOI1), NWALLID, &
             COORX(1:NPOI1,1), COORY(1:NPOI1,1), COORZ(1:NPOI1,1), &
             DDR(1:NPOI1), FSSRCH(1:NPOI1))
@@ -639,9 +639,9 @@ PROGRAM THREED_BREAKINGWAVE
       WRITE(8,'(" [TIM] TIME OF PRESSURE_SOLVER IS ",F15.6)'), &
          1D0*(CPUT%TI(6)-CPUT%TI(5))/CPUT%SYSRATE
       WRITE(8,*)
-  
+
       !CHANGE IT INTO REAL PRESSURE P=P-(Z-D)
-      DO I=1,NODEID(0) 
+      DO I=1,NODEID(0)
          PTMP(I)=PTMP(I)-((COORZ(I,2)-h0)*rou(i)*(-GRA))
       ENDDO
 
@@ -654,8 +654,8 @@ PROGRAM THREED_BREAKINGWAVE
 
       NPOI1=NODEID(0)
       CALL GHOSTPART(LNODE,NPOI1,NODEID(-7:NPOI1),NWALLID, &
-        COORX(:,2),COORY(:,2),COORZ(:,2),NLMAXN,MBAS,KW,R1,DDR,PTMP, &
-        MIRRNP,MIRRXY)
+         COORX(:,2),COORY(:,2),COORZ(:,2),NLMAXN,MBAS,KW,R1,DDR,PTMP, &
+         MIRRNP,MIRRXY)
 
       !NLMAXN=27
       CALL PRESSURE_SMOOTH_SHA(LNODE,NPOI1,NODEID(-2:NPOI1), &
@@ -678,19 +678,19 @@ PROGRAM THREED_BREAKINGWAVE
       CALL SYSTEM_CLOCK(CPUT%TI(6))
 
       WRITE(8,'(" [TIM] TIME OF GRADIENT_POM IS ",F15.6)'), &
-         1D0*(CPUT%TI(6)-CPUT%TI(5))/CPUT%SYSRATE            
+         1D0*(CPUT%TI(6)-CPUT%TI(5))/CPUT%SYSRATE
       WRITE(8,*)
 
       NPOI1=NODEID(0)
       CALL GRAD_PCYL_SHA(LNODE,NPOI1,NODEID(-7:NPOI1), &
          NWALLID,P,KW,COORX(:,2),COORY(:,2), &
          COORZ(:,2),SNX,SNY,SNZ,NLMAXN,MBAS)
-      
+
       CALL GRADIENT_2P(LNODE,P)
 
       CALL U_UPDATE_POW2(LNODE,NPOI1,NODEID(-2:NPOI1),NWALLID,GRA,DT, &
          COORX(:,2),COORY(:,2),COORZ(:,2),SPONGEX,DOMX,DOMY,DOMZ)
-      
+
       CALL U_BOUNDARY2(IFSI)
 
       NPOI1 = NODEID(0)
@@ -722,7 +722,7 @@ PROGRAM THREED_BREAKINGWAVE
          UY(IY,1) = TMPR1*FP%MLVAL(IX,3) + TMPR2*UY(IY,1)
          UZ(IY,1) = TMPR1*FP%MLVAL(IX,4) + TMPR2*UZ(IY,1)
       ENDDO
-      
+
       CALL UPDATE_CO(CSUXT1,CSUYT1,CSUZT1)
 
       CALL NEWCOOR5(BNDNP,BNDXY,BNDFIX,FSNOD1,FSNOD2,DDR, &
@@ -739,7 +739,7 @@ PROGRAM THREED_BREAKINGWAVE
 
       !-------------------------------
       ! END OF UPDATE ------
-      !-------------------------------      
+      !-------------------------------
 
       ! FS DOMAIN
       NFS=0
@@ -751,7 +751,7 @@ PROGRAM THREED_BREAKINGWAVE
             ZFS(NFS)=COORZ(I,1)
          ENDIF
       ENDDO
-      DO I=1,BNDFS(0)          
+      DO I=1,BNDFS(0)
          NFS=NFS+1
          XFS(NFS)=COORX(BNDFS(I),1)
          YFS(NFS)=COORY(BNDFS(I),1)
@@ -771,7 +771,7 @@ PROGRAM THREED_BREAKINGWAVE
       CALL MLPG_GET_ETA(FSDOM, NFS, XFS(1:NFS), YFS(1:NFS),  &
          ZFS(1:NFS), WP%NP, WP%XYZ(:,1), WP%XYZ(:,2), WP%XYZ(:,3), &
          ERRTMP(1:WP%NP), DDL, 50, 1)
-      
+
       WRITE(WP%FILE, '(E20.8)', ADVANCE='NO') TOTAL_TIME
       DO IX=1,WP%NP
          WRITE(WP%FILE, '(E20.8)', ADVANCE='NO') WP%XYZ(IX,3)
@@ -816,7 +816,7 @@ PROGRAM THREED_BREAKINGWAVE
       !NLMAXN=50 DONT KNOW
       CALL MLPG_GET_ETA(FSDOM, NFS, XFS(1:NFS), YFS(1:NFS),  &
          ZFS(1:NFS), I, F_PT%XFS, F_PT%YFS, F_PT%ZFS, &
-         ERRTMP(1:I), DDL, 50, 0) 
+         ERRTMP(1:I), DDL, 50, 0)
       J = SUM(ERRTMP(1:I))
       WRITE(8,'(" [INF] ERROR STATE IN FLUXIN ETA ",I10)') J
 
@@ -827,9 +827,9 @@ PROGRAM THREED_BREAKINGWAVE
          !NLMAX=40
          CALL MLPG_GET_UP2(MLDOM, LNODE, NODEID(-7:I), NWALLID, I, &
             COORX(1:I,1), COORY(1:I,1), COORZ(1:I,1), &
-         UX(1:I,1), UY(1:I,1), UZ(1:I,1), P(1:I), &
-         F_PT%NP, F_PT%X, F_PT%Y, F_PT%Z, &
-         F_PT%U, F_PT%V, F_PT%W, F_PT%P, DDL, NLMAXN)
+            UX(1:I,1), UY(1:I,1), UZ(1:I,1), P(1:I), &
+            F_PT%NP, F_PT%X, F_PT%Y, F_PT%Z, &
+            F_PT%U, F_PT%V, F_PT%W, F_PT%P, DDL, NLMAXN)
          CALL F_PT%CALCMASFLUX(1000D0, TMPR1)
       ENDIF
 
@@ -839,7 +839,7 @@ PROGRAM THREED_BREAKINGWAVE
       !NLMAX=50 GUESS
       CALL MLPG_GET_ETA(FSDOM, NFS, XFS(1:NFS), YFS(1:NFS),  &
          ZFS(1:NFS), I, F_PT%XFS, F_PT%YFS, F_PT%ZFS, &
-         ERRTMP(1:I), DDL, 50, 0) 
+         ERRTMP(1:I), DDL, 50, 0)
       J = SUM(ERRTMP(1:I))
       WRITE(8,'(" [INF] ERROR STATE IN FLUXOT ETA ",I10)') J
       TMPR2 = 0D0
@@ -861,13 +861,13 @@ PROGRAM THREED_BREAKINGWAVE
       !NLMAXN=50 GUESS
       CALL MLPG_GET_ETA(FSDOM, NFS, XFS(1:NFS), YFS(1:NFS),  &
          ZFS(1:NFS), I, VOLPL%XFS, VOLPL%YFS, VOLPL%ZFS, &
-         ERRTMP(1:I), DDL, 50, 0) 
-      
+         ERRTMP(1:I), DDL, 50, 0)
+
       ! ZCOR IS Z-VAL FOR (X,Y) WHERE MLPG_GET_ETA() GAVE NO RESULT
       CALL VOLPL%CALCVOL(I, ERRTMP(1:I), DOMZ(2), TMPR1)
       WRITE(8,'(" [INF] VOLUME ",F15.6)')TMPR1
       !!----------------------END FLUX CALC----------------------!!
-      
+
       !RESUME WRITE
       IF((ISTEP.NE.0) .AND. (MOD(ISTEP, RESFREQ).EQ.0))THEN
          CALL WRITERESUME(ISTEP, DDR, FSSRCH , P)
@@ -875,10 +875,39 @@ PROGRAM THREED_BREAKINGWAVE
 
 201   CONTINUE
       CALL OUTPUT(STEP0,ISTEP,IPRINT,I_PF,I_PF1,ERRSOL,DDR,P)
-      WRITE(1617,'("THAT WAS TIME = ",F15.6)')TOTAL_TIME    
+      WRITE(1617,'("THAT WAS TIME = ",F15.6)')TOTAL_TIME
       WRITE(1617,*)
-      
+
+      DO I = 1,NODEID(0)
+         NLINK(I)%I=0
+      END DO
+      WRITE(8,'(" [INF] DEALLOCATION NOT NEEDED,NLINK(I)%I=0")')
+
+      CALL SYSTEM_CLOCK(CPUT%TI(4))
+      WRITE(8,'(" [TIM] TOTAL TIME CURRENT TIMESTEP IS ",F15.6)'), &
+         1D0*(CPUT%TI(4)-CPUT%TI(3))/CPUT%SYSRATE
+
+      IF((ISTEP.EQ.NSTEPS-1) .OR. (ERRSOL.EQ.1))THEN
+         CALL SYSTEM_CLOCK(CPUT%TI(2))
+         WRITE(8,'(" [TIM] TOTAL TIME OF THIS CASE IS ",F15.6)'), &
+            1D0*(CPUT%TI(2)-CPUT%TI(1))/CPUT%SYSRATE
+      ENDIF
+
+      IF(ERRSOL.EQ.1) STOP
+
+      WRITE(8,'(A)')'--------------------'
+      WRITE(8,*)
+      WRITE(*,'(A)')'--------------------'
+      WRITE(*,*)
+
+500   CONTINUE
    ENDDO
+
+   CALL IM%ENDDOMAINDATA
+   WRITE(8,*)"THE PROGRAM IS SUCESSFULLY FINISHED"
+   CLOSE(WP%FILE)
+   CLOSE(PP%FILE)
+   CLOSE(8)
 
 END PROGRAM THREED_BREAKINGWAVE
 !!----------------------- END OF MAIN PROGRAM ---------------------!!
