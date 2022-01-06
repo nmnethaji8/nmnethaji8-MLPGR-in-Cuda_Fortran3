@@ -313,7 +313,7 @@ CONTAINS
 !!----------------------- END WEIGHTF3_SHA ------------------------!!
 
 !!------------------------- WEIGHTF4_SHA --------------------------!!
-ATTRIBUTES(DEVICE,HOST) SUBROUTINE WEIGHTF4_SHA(FSDOM, LNODE, NLMAX, NIN, NODEID, NWALLID, &
+ATTRIBUTES(DEVICE) SUBROUTINE WEIGHTF4_SHA(FSDOM, LNODE, NLMAX, NIN, NODEID, NWALLID, &
    XIN, YIN, ZIN, XQ, YQ, ZQ, NN, ND, W, IDWEI, I, I2, IX, IY, IZ, &
    IPOS, IX1, IY1, IZ1, RIAV, ETMP, DR, DR2, WWI)
    USE NODELINKMOD
@@ -329,6 +329,56 @@ ATTRIBUTES(DEVICE,HOST) SUBROUTINE WEIGHTF4_SHA(FSDOM, LNODE, NLMAX, NIN, NODEID
 
    INTEGER(KIND=4),INTENT(INOUT)::I,I2,IX,IY,IZ,IPOS,IX1,IY1,IZ1
    REAL(KIND=8),INTENT(INOUT)::RIAV,ETMP,DR,DR2,WWI
+
+   NN=0
+   ETMP=DEXP(-(1D0**2))
+
+   CALL FINDCELL(FSDOM,XQ,YQ,ZQ,IX,IY,IZ,IPOS)
+
+   DO IX1=IX-1,IX+1
+      DO IY1=IY-1,IY+1
+         DO IZ1=IZ-1,IZ+1
+            
+            IF((IX1.GE.0.AND.IX1.LT.FSDOM%CELLX).AND.&
+               (IY1.GE.0.AND.IY1.LT.FSDOM%CELLY).AND.&
+               (IZ1.GE.0.AND.IZ1.LT.FSDOM%CELLZ))THEN
+
+               IPOS=IX1+IY1*FSDOM%CELLX+IZ1*FSDOM%CELLY*FSDOM%CELLX
+          
+               DO I2=1,FSDOM%CELL(IPOS,0)
+                  I=FSDOM%CELL(IPOS,I2)
+
+                  !! NO GHOST PARTICLES
+                  IF( (NODEID(I).LT.0) .OR. (NODEID(I).GT.10) ) CYCLE
+
+                  !! NO DISABLED PARTICLES
+                  IF( (NWALLID(I,2).EQ.-10) ) CYCLE
+
+                  DR=DSQRT((XIN(I)-XQ)**2 + (YIN(I)-YQ)**2 + (ZIN(I)-ZQ)**2)
+                  IF(DR.LT.RIAV)THEN
+                     DR2=DR/RIAV
+
+                     IF(IDWEI.EQ.1)THEN
+                        WWI=(DEXP(-(DR2**2))-ETMP)/(1D0-ETMP)
+                     ELSE
+                        WWI=1D0-6D0*(DR2)**2+8D0*(DR2)**3-3D0*(DR2)**4 
+                     ENDIF
+
+                     IF(WWI.LE.0D0)CYCLE
+                     NN=NN+1
+                     IF(NN.GT.NLMAX)THEN
+                        PRINT*," [ERR] INCREASE NLMAX IN WEIGHTF3_SHA"
+                        STOP
+                     ENDIF
+                     ND(NN)=I
+                     W(NN)=WWI
+                  ENDIF
+               ENDDO
+            ENDIF
+         ENDDO
+      ENDDO
+   ENDDO
+  ND(0)=NN
 
 END SUBROUTINE WEIGHTF4_SHA
 !!------------------------- WEIGHTF4_SHA --------------------------!!
@@ -373,6 +423,9 @@ END SUBROUTINE WEIGHTF4_SHA
          NWALLID, XIN, YIN, ZIN, &
          XQ, YQ, ZQ, NN, ND, W, 1, I, I2, IX, IY, IZ, IPOS, &
          IX1, IY1, IZ1, RIAV, ETMP, DR, DR2, WWI)
+
+      NNN(INOD)=NN
+      WW(1:NN,INOD)=W(1:NN)
    ENDIF
    END SUBROUTINE MLPG_GET_UP2_KERNEL
 
@@ -472,10 +525,13 @@ SUBROUTINE MLPG_GET_UP2(DOMIN, LNODE, NODEID, NWALLID, NIN, &
    REAL(KIND=8),INTENT(IN)::DDL
    REAL(KIND=8),MANAGED,INTENT(OUT)::UOT(NOT),VOT(NOT),WOT(NOT),POT(NOT)
 
-   INTEGER(KIND=4)::I
+   INTEGER(KIND=4)::I,J
 
    WRITE(8,'(" [MSG] ENTERING MLPG_GET_UP")')
 
+   ALLOCATE(NNN(NOT),WW(NLMAX,NOT))
+   NNN=0
+   WW=0
    CALL MLPG_GET_UP2_KERNEL<<<CEILING(REAL(NOT)/16),16>>>(DOMIN, LNODE, NODEID, NWALLID, NIN, &
       XIN, YIN, ZIN, UIN, VIN, WIN, PIN, NOT, XOT, YOT, ZOT, &
       UOT, VOT, WOT, POT, DDL, NLMAX)
@@ -484,5 +540,8 @@ SUBROUTINE MLPG_GET_UP2(DOMIN, LNODE, NODEID, NWALLID, NIN, &
 
    WRITE(8,'(" [MSG] EXITING MLPG_GET_UP")')
    WRITE(8,*)
-
+   DO I=1,NOT 
+      J=NNN(I)
+      WRITE(9,*),WW(1:J,I)
+   ENDDO
 END SUBROUTINE MLPG_GET_UP2
