@@ -863,6 +863,10 @@ PROGRAM THREED_BREAKINGWAVE
          ZFS(1:NFS), I, VOLPL%XFS, VOLPL%YFS, VOLPL%ZFS, &
          ERRTMP(1:I), DDL, 50, 0) 
       
+      ! ZCOR IS Z-VAL FOR (X,Y) WHERE MLPG_GET_ETA() GAVE NO RESULT
+      CALL VOLPL%CALCVOL(I, ERRTMP(1:I), DOMZ(2), TMPR1)
+      WRITE(8,'(" [INF] VOLUME ",F15.6)')TMPR1
+      !!----------------------END FLUX CALC----------------------!!
          
       201 CONTINUE
    ENDDO
