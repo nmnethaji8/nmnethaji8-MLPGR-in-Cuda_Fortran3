@@ -67,6 +67,8 @@ SUBROUTINE PRESSURE_SOLVER2(NODN,PTMP,FB,EPS_G,ERRSOL)
       
    WRITE(8,*)'Finished GMRES CSR'
 
+   WRITE(9,*),PTMP(1:NODN)
+
 END SUBROUTINE PRESSURE_SOLVER2
 
 !!---------------------------U_UPDATE_POW2----------------------------!!

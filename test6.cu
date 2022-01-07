@@ -102,14 +102,14 @@ extern "C"
 
       mlpgTerOut.close();
 
-      vector<double>xt(n);
-      std::copy(x, x + n, xt.begin());
+      cusp::array1d<ValueType, cusp::host_memory> X_h(A.num_rows, 0);
 
+      X_h=X;
       for (int i = 0; i < n; i++)
       {
-         x[i] = xt[i];
+         x[i] = X_h[i];
       }
 
-      ro.clear(),co.clear(),va.clear(),rh.clear(),xt.clear();
+      ro.clear(),co.clear(),va.clear(),rh.clear();
    }
 }
