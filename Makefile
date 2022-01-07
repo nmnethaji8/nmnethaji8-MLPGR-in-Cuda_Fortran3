@@ -21,7 +21,7 @@ interpFunc_v1.5.o:interpFunc_v1.5.f95 nodelinkNew_v2.3.o interpNew_v1.5.o
 	$(FC) $(v) -Minfo=acc -c interpFunc_v1.5.f95
 
 test6.o:test6.cu
-	$(nv) -c -I /home/vsriram/Documents/MLPGR/MLPGR_CUDA test6.cu
+	$(nv) -Xcompiler -fopenmp -c -I /home/vsriram/Documents/MLPGR/MLPGR_CUDA test6.cu
 
 interpNew_v1.5.o:interpNew_v1.5.f95 modules_v3.1.o
 	$(FC) $(v) -Minfo=acc -c interpNew_v1.5.f95
