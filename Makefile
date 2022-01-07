@@ -32,7 +32,7 @@ resume.o:resume.f95 modCommon.o modules_v3.1.o
 remesh_v1.o:remesh_v1.f95 modules_v3.1.o
 	$(FC) $(v) -Minfo=acc -c remesh_v1.f95
 
-collision_v1.o:collision_v1.f95
+collision_v1.o:collision_v1.f95 modules_v3.1.o
 	$(FC) $(v) -Minfo=acc -c collision_v1.f95
 
 modules_v3.1.o:modules_v3.1.f95
