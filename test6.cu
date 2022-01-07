@@ -41,8 +41,9 @@ extern "C"
       std::copy(val, val + nnz, va.begin());
 
       vector<double>rh(n);
-      std::copy(rhs, rhs + nnz, rh.begin());
+      std::copy(rhs, rhs + n, rh.begin());
 
+      A.row_offsets=ro;
       A.column_indices=co;
       A.values=va;
 
@@ -100,9 +101,15 @@ extern "C"
       }
 
       mlpgTerOut.close();
+
+      vector<double>xt(n);
+      std::copy(x, x + n, xt.begin());
+
       for (int i = 0; i < n; i++)
       {
-         x[i] = X[i];
+         x[i] = xt[i];
       }
+
+      ro.clear(),co.clear(),va.clear(),rh.clear(),xt.clear();
    }
 }
