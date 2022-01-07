@@ -73,7 +73,7 @@ PROGRAM THREED_BREAKINGWAVE
    PRINT*,"cudaLimitMallocHeapSize",val
 
    OPEN(UNIT=8, FILE="mlpgTerOut.txt")
-   OPEN(UNIT=9, FILE=" /home/vsriram/MATLAB-Drive/output2.txt")
+   !OPEN(UNIT=9, FILE=" /home/vsriram/MATLAB-Drive/output2.txt")
 
    WRITE(8,*) '*****************************************************'
    WRITE(8,*) '3D WATER WAVE PROBLEM WITH MLPGR METHOD'
