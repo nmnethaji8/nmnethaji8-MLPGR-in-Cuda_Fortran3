@@ -6,3 +6,6 @@ cusp/
 mlpgrCuda
 mlpgTerOut.txt
 EmptyTank_L21_dr043_botFul3.txt
+cuda.cmd
+errorfile.err
+logfile.log
