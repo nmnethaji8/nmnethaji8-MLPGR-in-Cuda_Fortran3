@@ -1,5 +1,6 @@
 #include <iostream> // std::cout
 #include <fstream>
+#include <vector>
 
 #include <cusp/csr_matrix.h>
 #include <cusp/precond/diagonal.h>
@@ -22,22 +23,37 @@ extern "C"
    {
       // create an empty sparse matrix structure (CSR format)
       cusp::csr_matrix<int, ValueType, MemorySpace> A(n, m, nnz);
+      
+      vector<int>ro(n+1);
+      std::copy(rowoffset, rowoffset + n + 1, ro.begin());
 
-      // cout << "Row offset\n";
+      /*// cout << "Row offset\n";
       for (int i = 0; i <= n; i++)
       {
          A.row_offsets[i] = rowoffset[i];
          // cout << rowoffset[i] << " ";
-      }
+      }*/
 
-      // cout << "cloumn and val\n";
+      vector<int>co(nnz);
+      std::copy(col, col + nnz, co.begin());
+
+      vector<double>va(nnz);
+      std::copy(val, val + nnz, va.begin());
+
+      vector<double>rh(n);
+      std::copy(rhs, rhs + nnz, rh.begin());
+
+      A.column_indices=co;
+      A.values=va;
+
+      /*// cout << "cloumn and val\n";
       for (int i = 0; i < nnz; i++)
       {
          A.column_indices[i] = col[i];
          A.values[i] = val[i];
 
          // cout << col[i] << " " << val[i] << "\n";
-      }
+      }*/
 
       // cusp::print(A);
 
@@ -45,10 +61,11 @@ extern "C"
       cusp::array1d<ValueType, MemorySpace> X(A.num_rows, 0);
       cusp::array1d<ValueType, MemorySpace> B(A.num_rows, 0);
 
-      for (int i = 0; i < n; i++)
+      B=rh;
+      /*for (int i = 0; i < n; i++)
       {
          B[i] = rhs[i];
-      }
+      }*/
       // cusp::print(B);
 
       // std::cout << typeid(A.row_offsets).name() << '\n';
