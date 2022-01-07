@@ -1,12 +1,12 @@
 #Makefile for MLPG
 
-FC = /opt/nvidia/hpc_sdk/Linux_x86_64/21.7/compilers/bin/nvfortran
-nv = /opt/nvidia/hpc_sdk/Linux_x86_64/21.7/compilers/bin/nvcc
+FC = nvfortran
+nv = nvcc
 v = -Mcuda -acc #ptxinfo
 
 mlpgrCuda:mlpgrMain.o collision_v1.o remesh_v1.o resume.o mlpgMainSubs.o interpFunc_v1.5.o interpNew_v1.5.o modules_v3.1.o fnptCoupling.o nodelinkNew_v2.3.o modCommon.o
 	mkdir -p Export Output
-	$(FC) $(v) -Minfo=acc -c++libs -o mlpgrCuda mlpgrMain.o collision_v1.o remesh_v1.o resume.o mlpgMainSubs.o test6.o interpFunc_v1.5.o interpNew_v1.5.o modules_v3.1.o fnptCoupling.o nodelinkNew_v2.3.o modCommon.o -Mcudalib=cublas,cusolver,cusparse
+	$(FC) $(v) -Minfo=acc -c++libs -L /lfs/sware/gcc10.3.0/lib64/ -o mlpgrCuda mlpgrMain.o collision_v1.o remesh_v1.o resume.o mlpgMainSubs.o test6.o interpFunc_v1.5.o interpNew_v1.5.o modules_v3.1.o fnptCoupling.o nodelinkNew_v2.3.o modCommon.o -Mcudalib=cublas,cusolver,cusparse
 
 mlpgrMain.o:mlpgrMain.f95 collision_v1.o resume.o mlpgMainSubs.o interpFunc_v1.5.o modules_v3.1.o fnptCoupling.o nodelinkNew_v2.3.o modCommon.o 
 	$(FC) $(v) -Minfo=acc -c mlpgrMain.f95 -Mcudalib=cublas,cusolver,cusparse
@@ -21,7 +21,7 @@ interpFunc_v1.5.o:interpFunc_v1.5.f95 nodelinkNew_v2.3.o interpNew_v1.5.o
 	$(FC) $(v) -Minfo=acc -c interpFunc_v1.5.f95
 
 test6.o:test6.cu
-	$(nv) -Xcompiler -fopenmp -c -I /home/vsriram/Documents/MLPGR/MLPGR_CUDA test6.cu
+	$(nv) -c -I /lfs/usrhome/ms/oe19s010/scratch test6.cu
 
 interpNew_v1.5.o:interpNew_v1.5.f95 modules_v3.1.o
 	$(FC) $(v) -Minfo=acc -c interpNew_v1.5.f95
