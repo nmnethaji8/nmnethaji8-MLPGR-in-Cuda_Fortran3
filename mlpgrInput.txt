@@ -11,7 +11,7 @@ Q) Number of components in base function
 4
 
 Q) Time-Step (s), Starting time (s), Number of time-steps
-0.0075d0, 0, 1
+0.0075d0, 0, 2
 Q) Printout - End of Freq1, Freq1, Freq2
 5500, 120, 40				
 
@@ -47,7 +47,7 @@ Q) Cylinder (Centre-X Centre-Y Radius)
 Q) X Location of Sponge layer start (before right-wall)
 13.00
 Q) Remeshing Freq (=0 to disable)
-30
+1
 
 Q) Wave probe numbers and locations (nProbe | X Y )
 9
